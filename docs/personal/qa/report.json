@@ -1,0 +1,86 @@
+{
+  "syntheticOnly": true,
+  "startedAt": "2026-10-08T22:30:12.899Z",
+  "service": "http://127.0.0.1:8788",
+  "checks": [
+    {
+      "name": "Full Electron, isolated Chromium profile and authenticated personal connection",
+      "result": "PASS"
+    },
+    {
+      "name": "GUI commitment create and Tegucigalpa date-only persistence",
+      "result": "PASS",
+      "id": "8a3e40d4-0977-4d97-9712-36b4645f0243",
+      "revision": 1
+    },
+    {
+      "name": "GUI commitment edit increments revision and preserves deadline",
+      "result": "PASS"
+    },
+    {
+      "name": "GUI stale edit rejected, local draft retained, reload and status save succeed",
+      "result": "PASS"
+    },
+    {
+      "name": "GUI diary save and tab preservation leave task status unchanged",
+      "result": "PASS",
+      "id": "29ce2518-0761-4118-8cdf-7dc00751db61"
+    },
+    {
+      "name": "GUI navigates 55 persisted messages and restores selection on the previous page",
+      "result": "PASS"
+    },
+    {
+      "name": "GUI sync, search, category, plain-text body and disabled provider writes",
+      "result": "PASS"
+    },
+    {
+      "name": "GUI and official MCP stdio capture return one durable task identity",
+      "result": "PASS",
+      "mailId": "3b1eba99-9a87-4f20-bbbe-22e1c109b260",
+      "taskId": "756265d7-ad50-4450-be9c-100789f61db2"
+    },
+    {
+      "name": "GUI persisted coding snapshot distinguishes process exit from validation",
+      "result": "PASS"
+    },
+    {
+      "name": "GUI service disconnection retains the last snapshot and recovers after restart",
+      "result": "PASS"
+    },
+    {
+      "name": "Full service and Electron restart preserve task, diary, mail linkage and run snapshot",
+      "result": "PASS"
+    },
+    {
+      "name": "Synthetic provider received only GET; renderer has no uncaught errors",
+      "result": "PASS",
+      "providerRequests": 1
+    }
+  ],
+  "screenshots": [
+    "01-qa-hoy.png",
+    "02-qa-conflicto-revision.png",
+    "03-qa-compromisos.png",
+    "04-qa-diario.png",
+    "05a-qa-correo-segunda-pagina.png",
+    "05-qa-correo-sintetico.png",
+    "05b-qa-escrituras-deshabilitadas.png",
+    "06-qa-desarrollo.png",
+    "07-qa-resumen.png",
+    "07b-qa-servicio-desconectado.png",
+    "08-qa-persistencia.png"
+  ],
+  "pageErrors": [],
+  "consoleErrors": [],
+  "teardownConsoleErrors": [],
+  "playwrightVersion": "1.62.1",
+  "builtMainSha256": "8511a5f729acfe0fa32b907035417ee740ed6165bed5050c52d80af359a20e21",
+  "electronVersions": {
+    "electron": "44.5.1",
+    "chromium": "152.0.7977.130",
+    "node": "24.21.0"
+  },
+  "result": "PASS",
+  "finishedAt": "2026-10-08T22:31:12.605Z"
+}

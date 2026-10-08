@@ -712,6 +712,7 @@ export const IPC = {
   backendState: 'herald-os:backend:state',
   backendRestart: 'herald-os:backend:restart',
   backendRest: 'herald-os:backend:rest',
+  personalRequest: 'herald-os:personal:request',
   backendLogTail: 'herald-os:backend:log-tail',
 
   systemInfo: 'herald-os:system:info',

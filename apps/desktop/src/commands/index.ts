@@ -22,9 +22,11 @@ import { menuBarCommands } from './menubar.ts'
 import { pluginCommands } from './plugins.ts'
 import { softwareCommands } from './software.ts'
 import { typingCommands } from './typing.ts'
+import { personalCommands } from './personal.ts'
 
 /** Every command group by file, in the order they register. A group file registers once it is listed here. */
 export const commandGroups: Record<string, readonly OsCommand[]> = {
+  personal: personalCommands,
   navigation: navigationCommands,
   edit: editCommands,
   hermes: hermesCommands,

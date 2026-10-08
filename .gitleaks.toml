@@ -1,0 +1,7 @@
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Verified upstream Slides keyboard accelerator, not a credential"
+regexTarget = "secret"
+regexes = ['''^mod\+shift\+enter$''']

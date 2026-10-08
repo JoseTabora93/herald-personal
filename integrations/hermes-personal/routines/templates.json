@@ -1,0 +1,47 @@
+{
+  "version": 1,
+  "timezone": "America/Tegucigalpa",
+  "installation_status": "template_only",
+  "routines": [
+    {
+      "name": "Herald - prioridades de la mañana",
+      "schedule": "0 7 * * 1-5",
+      "paused": true,
+      "enabled": false,
+      "state": "paused",
+      "destination": null,
+      "skill": "herald-revision-diaria",
+      "prompt": "Consulta personal_status y sincroniza en lectura los proveedores configurados, con hasta dos lotes acotados. Si falla, indica la última sincronización válida. Lee brief morning y overview reales; aclara que el resumen cubre el correo sincronizado. Prepara hasta tres prioridades, vencidos y bloqueos. Si no hay cambio relevante, mantén silencio. No envíes mensajes ni actives rutinas sin destino y autorización explícitos."
+    },
+    {
+      "name": "Herald - cierre del día",
+      "schedule": "30 17 * * 1-5",
+      "paused": true,
+      "enabled": false,
+      "state": "paused",
+      "destination": null,
+      "skill": "herald-revision-diaria",
+      "prompt": "Consulta el brief evening real. Solicita a José qué logró, qué quedó pendiente y qué prioriza mañana. Guarda solo su respuesta en la fecha local. No completes compromisos por inferencia. No enviar sin destino autorizado."
+    },
+    {
+      "name": "Herald - seguimiento de compromisos",
+      "schedule": "0 11 * * 1-5",
+      "paused": true,
+      "enabled": false,
+      "state": "paused",
+      "destination": null,
+      "skill": "herald-compromisos",
+      "prompt": "Revisa vencidos, esperando y próximos compromisos reales. Prepara un seguimiento solo si hay cambio relevante o decisión requerida. No contactar terceros, no cambiar fechas ni estados sin autorización."
+    },
+    {
+      "name": "Herald - supervisión de ejecuciones",
+      "schedule": "*/15 * * * *",
+      "paused": true,
+      "enabled": false,
+      "state": "paused",
+      "destination": null,
+      "skill": "herald-supervision",
+      "prompt": "Consulta coding_run_list sin iniciar ni reintentar ejecuciones. Notifica solo transición relevante, finalización, fallo o acción humana necesaria; mantén silencio si nada cambia. completed nunca equivale a pruebas aprobadas."
+    }
+  ]
+}

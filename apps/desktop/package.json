@@ -1,7 +1,7 @@
 {
   "name": "@herald-os/desktop",
-  "productName": "Herald OS",
-  "version": "0.1.0-alpha.2",
+  "productName": "Herald Personal",
+  "version": "0.1.0-personal.1",
   "private": true,
   "description": "The Herald OS shell: menu bar, dock, windows and apps for an agent-native operating system.",
   "author": "Luke The Dev",
@@ -48,10 +48,12 @@
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
     "@vitejs/plugin-react": "6.1.1",
+    "@vitest/coverage-v8": "5.0.1",
     "concurrently": "10.0.5",
     "electron": "44.5.1",
     "electron-builder": "26.15.3",
     "esbuild": "0.28.2",
+    "playwright": "1.62.1",
     "tailwindcss": "4.3.3",
     "typescript": "6.0.3",
     "vite": "8.3.0",
@@ -59,10 +61,10 @@
     "wait-on": "9.1.0"
   },
   "build": {
-    "appId": "dev.iamluke.heraldos",
-    "productName": "Herald OS",
-    "executableName": "Herald OS",
-    "artifactName": "HeraldOS-${version}-${os}-${arch}.${ext}",
+    "appId": "dev.josetabora.heraldpersonal",
+    "productName": "Herald Personal",
+    "executableName": "Herald Personal",
+    "artifactName": "HeraldPersonal-${version}-${os}-${arch}.${ext}",
     "directories": {
       "output": "release"
     },

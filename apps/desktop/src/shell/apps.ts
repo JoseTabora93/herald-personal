@@ -2,7 +2,7 @@ import type { ComponentType } from 'react'
 import type { InstalledApp } from '../../shared/ipc.ts'
 
 /** Pages inside the main Hermes window (sidebar navigation). */
-export type PageId = 'overview' | 'hermes' | 'missions' | 'memory' | 'files' | 'automations' | 'connections' | 'settings'
+export type PageId = 'overview' | 'personal' | 'hermes' | 'missions' | 'memory' | 'files' | 'automations' | 'connections' | 'settings'
 
 /** Apps that open in their own floating window. */
 export type FloatingAppId = 'terminal' | 'system' | 'chat-popout' | 'web' | 'studio' | 'capture-editor' | 'camera' | 'widget' | 'canvas'
@@ -43,6 +43,7 @@ export type AppIconId =
   | 'trash'
 
 export const PAGES: readonly HermesAppDef<PageId>[] = [
+  { id: 'personal', name: 'Personal', tagline: 'Tu correo, compromisos y seguimiento diario.', category: 'productivity', kind: 'page', icon: 'overview' },
   { id: 'overview', name: 'Overview', tagline: 'Your day, already in motion.', category: 'productivity', kind: 'page', icon: 'overview', shortcut: '1' },
   { id: 'hermes', name: 'Hermes', tagline: 'Talk to your computer.', category: 'productivity', kind: 'page', icon: 'hermes', shortcut: '2' },
   { id: 'missions', name: 'Missions', tagline: 'From intent to finished work.', category: 'productivity', kind: 'page', icon: 'missions', shortcut: '3' },

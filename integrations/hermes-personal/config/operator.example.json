@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "state_dir": "/ABSOLUTE/private/herald-runs",
+  "max_deadline_seconds": 600,
+  "max_attempts": 1,
+  "max_active_runs": 2,
+  "workspaces": {},
+  "agents": {
+    "claude": {
+      "executable": "/ABSOLUTE/bin/claude",
+      "max_budget_usd": 2,
+      "credential_env": []
+    },
+    "opencode": {
+      "executable": "/ABSOLUTE/bin/opencode",
+      "cli_variant": "v2",
+      "credential_env": []
+    }
+  },
+  "scopes": {}
+}

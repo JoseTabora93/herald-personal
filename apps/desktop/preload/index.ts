@@ -66,6 +66,7 @@ import {
   type WmState
 } from '../shared/ipc.ts'
 import type { BrandingPatch, BrandingView } from '../shared/branding.ts'
+import type { PersonalRequest } from '../shared/personal.ts'
 import type { ModelId, ModelProgress, ModelStatus } from '../shared/canvas/models.ts'
 import type { MenuExtensions } from '../shared/menu-extensions.ts'
 import type { PluginMethod, PluginView } from '../shared/plugins.ts'
@@ -88,6 +89,9 @@ const subscribe = <T,>(channel: string, listener: (payload: T) => void): Unsubsc
 
 /** The whole capability surface the renderer gets. Keep it narrow and typed. */
 const api = {
+  personal: {
+    request: <T,>(request: PersonalRequest): Promise<T> => ipcRenderer.invoke(IPC.personalRequest, request)
+  },
   backend: {
     getState: (): Promise<BackendState> => ipcRenderer.invoke(IPC.backendGetState),
     onState: (listener: (state: BackendState) => void): Unsubscribe => subscribe(IPC.backendState, listener),

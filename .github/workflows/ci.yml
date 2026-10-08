@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, personal, codex/jose-personal-os]
   pull_request:
 
 permissions:
@@ -64,6 +64,36 @@ jobs:
             esac
           done < <(git ls-files)
           exit "$failed"
+
+  personal:
+    name: Personal API and Hermes tools (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.13'
+      - run: python -m pip install --require-hashes -r services/personal/requirements.lock
+      - name: API behavior and coverage
+        working-directory: services/personal
+        run: python -m pytest --cov=herald_personal --cov-report=term-missing
+      - name: API static checks
+        working-directory: services/personal
+        run: |
+          python -m ruff check herald_personal tests
+          python -m mypy herald_personal
+      - name: MCP and durable supervision
+        env:
+          PYTHONPATH: integrations/hermes-personal/src
+        run: python -m unittest discover -s integrations/hermes-personal/tests -v
+      - name: Runtime setup
+        run: |
+          python scripts/test_personal_runtime.py
+          python scripts/test_install_personal_macos.py
 
   secrets:
     name: Secret scan

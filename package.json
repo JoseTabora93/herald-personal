@@ -28,7 +28,8 @@
     },
     "usocket": {
       "node-gyp": "12.4.0"
-    }
+    },
+    "http-cache-semantics": "4.3.0"
   },
   "allowScripts": {
     "node-pty": true,
@@ -44,7 +45,11 @@
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
     "test:bridge": "bash scripts/test-bridge.sh",
-    "dist:mac": "npm run dist:mac --workspace apps/desktop"
+    "dist:mac": "npm run dist:mac --workspace apps/desktop",
+    "personal:init": "python3 scripts/personal_runtime.py init",
+    "personal:service": "python3 scripts/personal_runtime.py service",
+    "personal:desktop": "python3 scripts/personal_runtime.py desktop",
+    "personal:doctor": "python3 scripts/personal_runtime.py doctor"
   },
   "devDependencies": {
     "cross-env": "^10.1.0"

@@ -1,0 +1,9 @@
+[run]
+source = integrations/hermes-personal/src/herald_hermes
+data_file = integrations/hermes-personal/.coverage
+parallel = true
+patch = subprocess
+
+[report]
+show_missing = true
+fail_under = 80

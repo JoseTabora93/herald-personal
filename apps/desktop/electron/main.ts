@@ -1,8 +1,11 @@
 import { app, BrowserWindow, globalShortcut, ipcMain, Notification, protocol, shell } from 'electron'
 import os from 'node:os'
+import fs from 'node:fs'
 import path from 'node:path'
 import { type EnvInfo, type HeraldOSPrefs, IPC, type RestRequest, type ShellCommand, type WindowState } from '../shared/ipc.ts'
 import { BackendManager } from './backend/manager.ts'
+import { personalEnvironment, requestPersonal } from './personal/client.ts'
+import type { PersonalRequest } from '../shared/personal.ts'
 import { forgetInheritedSession } from './backend/session-env.ts'
 import { CrashWatcher } from './crash/watch.ts'
 import { fireEventAutomations } from './events/automations.ts'
@@ -33,7 +36,7 @@ import { log, logTail } from './log.ts'
 import { migrateLegacyData } from './migrate.ts'
 import { registerNotificationHistoryIpc } from './notifications-history.ts'
 import { SwitchService } from './switches.ts'
-import { hermesHome, heraldOsDataDir, isDev } from './paths.ts'
+import { hermesHome, heraldOsDataDir, isDev, isShellPage } from './paths.ts'
 import { readPrefs, writePrefs } from './prefs.ts'
 import { isOmarchy, readOmarchyTheme } from './theme/omarchy.ts'
 import { prefsForTheme } from './theme/themes.ts'
@@ -51,7 +54,12 @@ import { registerServiceIpc } from './shell/services.ts'
 import { WallpaperService } from './shell/wallpaper.ts'
 import { appIconPath, createMainWindow } from './window.ts'
 
-app.setName('Herald OS')
+app.setName('Herald Personal')
+const personalInstall = path.join(app.getPath('appData'), 'Herald Personal')
+if (!process.env.HERMES_HOME && fs.existsSync(path.join(personalInstall, 'hermes-home', 'config.yaml'))) {
+  process.env.HERMES_HOME = path.join(personalInstall, 'hermes-home')
+  process.env.HERALD_OS_HERMES_ROOT ??= path.join(os.homedir(), '.hermes', 'hermes-agent')
+}
 // Chromium turns WebGL off where it does not accelerate the graphics (virtual machines, drivers it
 // blocklists), and Herald Canvas draws with WebGL: there it falls back to SwiftShader, Chromium's
 // software renderer, rather than to nothing. Machines it accelerates are not affected.
@@ -205,6 +213,13 @@ function registerCoreIpc(): void {
   ipcMain.handle(IPC.backendGetState, () => backend.getState())
   ipcMain.handle(IPC.backendRestart, () => backend.restart())
   ipcMain.handle(IPC.backendRest, (_event, request: RestRequest) => backend.rest(request))
+  ipcMain.handle(IPC.personalRequest, async (event, request: PersonalRequest) => {
+    // Only our top-level shell can use its preload capability, never an embedded page.
+    if (event.senderFrame !== event.sender.mainFrame || !BrowserWindow.fromWebContents(event.sender) || !isShellPage(event.senderFrame.url)) {
+      throw new Error('Solicitud personal no permitida.')
+    }
+    return requestPersonal(request, await personalEnvironment(path.join(personalInstall, 'connection.json')))
+  })
   ipcMain.handle(IPC.backendLogTail, (_event, lines: number) => [...logTail(lines), ...backend.getState().logTail])
 
   ipcMain.handle(IPC.notifyNative, (_event, title: string, body: string) => {

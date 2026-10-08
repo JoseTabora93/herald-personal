@@ -1,3 +1,3 @@
-# Findings checked by hand and known not to be credentials.
-# A keyboard shortcut in a Herald Slides menu item.
-cf060c446d79180f748b8aac563b463f54edbcf9:apps/desktop/src/features/office/slides/SlidesWindow.tsx:generic-api-key:177
+# Upstream false positive: the Slides menu's `keys` field is a keyboard shortcut,
+# followed by an enabled expression. This exact historical finding is not a credential.
+e8b6c1cded213c0690fef8c0bf7e00e67ffa879b:apps/desktop/src/features/office/slides/SlidesWindow.tsx:generic-api-key:58

@@ -1,0 +1,26 @@
+# Plantilla para otro HERMES_HOME aislado. Nunca sustituye configuración global.
+timezone: America/Tegucigalpa
+approvals:
+  mode: manual
+  cron_mode: deny
+  single_query_mode: deny
+  unattended_mode: deny
+platform_toolsets:
+  cli: [skills, mcp-herald_personal]
+  whatsapp: [skills, mcp-herald_personal]
+  telegram: [skills, mcp-herald_personal]
+kanban:
+  dispatch_in_gateway: false
+mcp_servers:
+  herald_personal:
+    command: /ABSOLUTE/herald-personal/services/personal/.venv/bin/python
+    args: [-m, herald_hermes]
+    env:
+      PYTHONPATH: /ABSOLUTE/herald-personal/integrations/hermes-personal/src
+      HERALD_PERSONAL_URL: http://127.0.0.1:8787
+      HERALD_PERSONAL_TOKEN_FILE: /ABSOLUTE/private/herald-personal.token
+      HERALD_MCP_ROLE: coder
+      HERALD_CODING_CONFIG: /ABSOLUTE/private/operator.json
+      HERALD_PERSONAL_PROJECT_RUNS: "1"
+    sampling:
+      enabled: false

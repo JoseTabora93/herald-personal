@@ -1,0 +1,25 @@
+[Unit]
+Description=Herald Personal API
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=herald
+Group=herald
+WorkingDirectory=/opt/herald-personal/services/personal
+EnvironmentFile=/etc/herald-personal/service.env
+ExecStart=/opt/herald-personal/services/personal/.venv/bin/python -m herald_personal --host 127.0.0.1 --port 8787
+Restart=on-failure
+RestartSec=10
+TimeoutStopSec=30
+UMask=0077
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+StateDirectory=herald-personal
+ReadWritePaths=/var/lib/herald-personal
+
+[Install]
+WantedBy=multi-user.target

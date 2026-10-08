@@ -1,3 +1,5 @@
+> **Herald Personal de José:** este fork añade correo, compromisos, diario y supervisión de agentes. Consulta [la guía personal](README-PERSONAL.md) y [la validación de entrega](docs/personal/VALIDACION.md). A continuación se conserva la presentación y documentación del proyecto original.
+
 <p align="center">
   <img src="apps/desktop/build/icon.png" alt="Herald OS" width="112">
 </p>
