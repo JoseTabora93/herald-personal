@@ -9,9 +9,9 @@ const body = (html: string) => /<body>([\s\S]*)<\/body>/.exec(html)?.[1] ?? ''
 
 describe('print views', () => {
   it('prints a document with real nested lists, its styles and escaped text', () => {
-    const { document } = documentFromMarkdown('# Plan <A&B>\n\n- one\n  - two\n1. first\n\nA **bold** move.\n', { id: 'doc', title: 'Plan' })
+    const { document } = documentFromMarkdown('# Plan <A&B>\n\n- one\n  - two\n1. first\n\nA **bold** move.\n')
 
-    expect(body(printDocument(document, 'Plan'))).toBe('<h1>Plan &lt;A&amp;B&gt;</h1><ul><li>one</li><ul><li>two</li></ul></ul><ol><li>first</li></ol><p>A <strong>bold</strong> move.</p>')
+    expect(body(printDocument(document, 'Plan'))).toBe('<div class="doc"><h1>Plan &lt;A&amp;B&gt;</h1><ul><li><p>one</p><ul><li><p>two</p></li></ul></li></ul><ol><li><p>first</p></li></ol><p>A <strong>bold</strong> move.</p></div>')
   })
 
   it('prints the sheet in front as a table, numbers to the right, wide ones on a landscape page', () => {

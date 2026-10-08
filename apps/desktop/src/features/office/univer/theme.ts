@@ -13,11 +13,3 @@ export function heraldUniverTheme(): { theme: UniverTheme; darkMode: boolean } {
 
   return { theme: { ...defaultTheme, primary, gray }, darkMode }
 }
-
-/** A colour token ("gray.100") in Univer's own palette, for a canvas that draws as it prints. */
-export function neutralColor(color: string): string {
-  const [palette, shade] = color.split('.')
-  const value = (defaultTheme as Record<string, unknown>)[palette]
-
-  return value && typeof value === 'object' && shade in value ? String((value as Record<string, string>)[shade]) : color
-}

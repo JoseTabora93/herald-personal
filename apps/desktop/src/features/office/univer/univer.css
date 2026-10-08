@@ -8,12 +8,3 @@
 [data-office-root] [data-u-comp='workbench-layout'] > div {
   background-color: transparent !important;
 }
-
-/* Docs: white pages on a desk a little darker than the glass; the canvas itself is see-through. */
-[data-office-root='docs'] [data-u-comp='workbench-layout'] {
-  background-color: rgb(0 4 24 / 0.22) !important;
-}
-
-[data-office-root='docs'] canvas {
-  background-color: transparent !important;
-}

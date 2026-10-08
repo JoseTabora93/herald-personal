@@ -1,0 +1,176 @@
+/*
+ * Herald Docs' page: white paper on a desk a little darker than the window's glass. What the
+ * document's text looks like comes from its styles (doc-html.ts), the same rules its PDF uses;
+ * these are the editor's own marks on the page: the caret, selection, find, handles and guides.
+ */
+
+.docs-desk {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 28px 24px 72px;
+  background: rgb(0 4 24 / 0.26);
+}
+
+.docs-sheet {
+  flex: none;
+  box-sizing: border-box;
+  background: var(--color-paper);
+  color: var(--color-ink);
+  color-scheme: light;
+  box-shadow:
+    0 1px 2px rgb(0 0 0 / 0.28),
+    0 10px 30px rgb(0 0 0 / 0.34);
+  cursor: text;
+  user-select: text;
+}
+
+.docs-sheet .tiptap {
+  min-height: 100%;
+  outline: none;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  tab-size: 36pt;
+  caret-color: #000;
+  font-variant-ligatures: common-ligatures;
+}
+
+.docs-sheet .tiptap ::selection,
+.docs-sheet .tiptap::selection {
+  background: rgb(47 125 255 / 0.26);
+}
+
+.docs-sheet .tiptap p.is-empty::before,
+.docs-sheet .tiptap h1.is-empty::before,
+.docs-sheet .tiptap h2.is-empty::before,
+.docs-sheet .tiptap h3.is-empty::before {
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  color: #9aa1ad;
+  pointer-events: none;
+}
+
+.docs-sheet .docs-find {
+  border-radius: 2px;
+  background: rgb(255 212 0 / 0.45);
+}
+
+.docs-sheet .docs-find-current {
+  background: rgb(255 140 0 / 0.55);
+  box-shadow: 0 0 0 1px rgb(255 120 0);
+}
+
+/* Pictures: an outline and four handles while one is selected. */
+.docs-sheet .docs-image {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+  line-height: 0;
+  vertical-align: bottom;
+}
+
+.docs-sheet .docs-image img {
+  max-width: 100%;
+}
+
+.docs-sheet .docs-image.is-selected img,
+.docs-sheet .docs-image.is-resizing img {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
+.docs-sheet .docs-image-handle {
+  position: absolute;
+  display: none;
+  width: 10px;
+  height: 10px;
+  border: 1.5px solid var(--color-accent);
+  border-radius: 2px;
+  background: #fff;
+  touch-action: none;
+}
+
+.docs-sheet .docs-image.is-selected .docs-image-handle,
+.docs-sheet .docs-image.is-resizing .docs-image-handle {
+  display: block;
+}
+
+.docs-sheet .docs-image-handle[data-corner='top-left'] {
+  top: -5px;
+  left: -5px;
+  cursor: nwse-resize;
+}
+
+.docs-sheet .docs-image-handle[data-corner='top-right'] {
+  top: -5px;
+  right: -5px;
+  cursor: nesw-resize;
+}
+
+.docs-sheet .docs-image-handle[data-corner='bottom-left'] {
+  bottom: -5px;
+  left: -5px;
+  cursor: nesw-resize;
+}
+
+.docs-sheet .docs-image-handle[data-corner='bottom-right'] {
+  right: -5px;
+  bottom: -5px;
+  cursor: nwse-resize;
+}
+
+/* Tables: room to scroll a wide one, column handles, selected cells. */
+.docs-sheet .tableWrapper {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.docs-sheet .tableWrapper table {
+  margin: 6pt 0;
+}
+
+.docs-sheet .column-resize-handle {
+  position: absolute;
+  top: 0;
+  right: -2px;
+  bottom: -2px;
+  width: 4px;
+  background: var(--color-accent);
+  pointer-events: none;
+}
+
+.docs-sheet.resize-cursor,
+.docs-sheet .resize-cursor {
+  cursor: col-resize;
+}
+
+.docs-sheet .selectedCell::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgb(47 125 255 / 0.16);
+  pointer-events: none;
+}
+
+.docs-sheet li[data-type='taskItem'] input[type='checkbox'] {
+  width: 13px;
+  height: 13px;
+  margin: 0.28em 0 0;
+  accent-color: var(--color-accent);
+  cursor: pointer;
+}
+
+.docs-sheet .ProseMirror-selectednode.doc-page-break,
+.docs-sheet hr.ProseMirror-selectednode {
+  border-top-color: var(--color-accent);
+}
+
+.docs-sheet .doc-callout.has-focus,
+.docs-sheet .ProseMirror-selectednode.doc-callout {
+  box-shadow: 0 0 0 2px rgb(47 125 255 / 0.35);
+}
+
+.docs-sheet .ProseMirror-gapcursor::after {
+  border-top-color: #000;
+}

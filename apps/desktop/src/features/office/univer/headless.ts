@@ -1,13 +1,9 @@
 import '@univerjs/sheets/facade'
 import '@univerjs/engine-formula/facade'
 import '@univerjs/sheets-formula/facade'
-import '@univerjs/docs/facade'
-import { type IDocumentData, type IWorkbookData, LifecycleService, LifecycleStages, LocaleType, LogLevel, Univer, UniverInstanceType } from '@univerjs/core'
+import { type IWorkbookData, LifecycleService, LifecycleStages, LocaleType, LogLevel, Univer, UniverInstanceType } from '@univerjs/core'
 import { FUniver } from '@univerjs/core/facade'
-import type { FDocument } from '@univerjs/docs/facade'
-import { UniverDocsPlugin } from '@univerjs/docs'
 import { UniverFormulaEnginePlugin } from '@univerjs/engine-formula'
-import { UniverRenderEnginePlugin } from '@univerjs/engine-render'
 import { UniverSheetsPlugin } from '@univerjs/sheets'
 import type { FWorkbook } from '@univerjs/sheets/facade'
 import { CalculationMode, UniverSheetsFormulaPlugin } from '@univerjs/sheets-formula'
@@ -54,29 +50,6 @@ export async function withHeadlessWorkbook<T>(snapshot: Partial<IWorkbookData>, 
     }
 
     return await work(workbook, api)
-  } finally {
-    univer.dispose()
-  }
-}
-
-/** Run `work` on a document loaded with nothing drawn, then free it. */
-export async function withHeadlessDocument<T>(snapshot: Partial<IDocumentData>, work: (document: FDocument, api: FUniver) => Promise<T> | T): Promise<T> {
-  const univer = new Univer({ locale: LocaleType.EN_US, locales: LOCALES, logLevel: LogLevel.ERROR })
-
-  try {
-    // Docs' text edits look up the render manager; with no chrome it never creates a canvas.
-    univer.registerPlugin(UniverRenderEnginePlugin)
-    univer.registerPlugin(UniverDocsPlugin)
-    univer.createUnit(UniverInstanceType.UNIVER_DOC, snapshot)
-    settle(univer)
-    const api = FUniver.newAPI(univer)
-    const document = api.getActiveDocument()
-
-    if (!document) {
-      throw new Error('The document did not load')
-    }
-
-    return await work(document, api)
   } finally {
     univer.dispose()
   }
