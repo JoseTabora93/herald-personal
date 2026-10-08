@@ -1,95 +1,73 @@
 import { describe, expect, it } from 'vitest'
-import { addElement, addSlide, arrangeElement, clampBox, DeckHistory, duplicateSlide, moveSlide, newDeck, removeElement, removeSlide, shapeBox, SLIDE_SIZE, slideWith, textBox, updateElement } from './deck.ts'
-
-describe('slides', () => {
-  it('starts a deck with a title slide whose boxes wait for text', () => {
-    const deck = newDeck('Pitch')
-
-    expect(deck.slides).toHaveLength(1)
-    expect(deck.slides[0].elements.map((element) => element.kind === 'text' && element.placeholder)).toEqual(['Click to add a title', 'Click to add a subtitle'])
-  })
-
-  it('adds a slide after the one asked for, and at the end without one', () => {
-    let deck = newDeck('Pitch')
-    const first = deck.slides[0].id
-    deck = addSlide(deck, 'blank').deck
-    const { deck: next, slideId } = addSlide(deck, 'title-body', first)
-
-    expect(next.slides.map((slide) => slide.id)).toEqual([first, slideId, deck.slides[1].id])
-    expect(next.slides[1].elements).toHaveLength(2)
-  })
-
-  it('keeps one slide when the last is removed', () => {
-    const deck = newDeck('Pitch')
-    const after = removeSlide(deck, deck.slides[0].id)
-
-    expect(after.slides).toHaveLength(1)
-    expect(after.slides[0].id).not.toBe(deck.slides[0].id)
-    expect(after.slides[0].elements).toEqual([])
-  })
-
-  it('duplicates a slide with new ids, and moves slides', () => {
-    const deck = newDeck('Pitch')
-    const { deck: doubled, slideId } = duplicateSlide(deck, deck.slides[0].id)
-
-    expect(doubled.slides).toHaveLength(2)
-    expect(doubled.slides[1].elements.map((element) => element.id)).not.toEqual(deck.slides[0].elements.map((element) => element.id))
-    expect(moveSlide(doubled, slideId, 0).slides[0].id).toBe(slideId)
-  })
-})
-
-describe('elements', () => {
-  it('adds, changes, arranges and removes elements without touching other slides', () => {
-    let deck = addSlide(newDeck('Pitch'), 'blank').deck
-    const [first, second] = deck.slides
-    const box = textBox({ x: 10, y: 10, width: 200, height: 40, text: 'Hello' })
-    const shape = shapeBox({ x: 0, y: 0, width: 100, height: 100 })
-    deck = addElement(addElement(deck, second.id, box), second.id, shape)
-    deck = updateElement(deck, second.id, box.id, { text: 'Hello, Herald', bold: true })
-
-    expect(deck.slides[0]).toBe(first)
-    expect(deck.slides[1].elements[0]).toMatchObject({ text: 'Hello, Herald', bold: true })
-    expect(arrangeElement(deck, second.id, box.id, 'front').slides[1].elements.map((element) => element.id)).toEqual([shape.id, box.id])
-    expect(removeElement(deck, second.id, shape.id).slides[1].elements).toHaveLength(1)
-  })
-
-  it('keeps boxes partly on the slide and at least a few points a side', () => {
-    expect(clampBox({ id: 'a', x: -500, y: 9999, width: 2, height: 50 })).toEqual({ id: 'a', x: 0, y: SLIDE_SIZE.height - 8, width: 8, height: 50 })
-  })
-
-  it('lays out a title and text slide inside the page', () => {
-    for (const element of slideWith('title-body').elements) {
-      expect(element.x + element.width).toBeLessThanOrEqual(SLIDE_SIZE.width)
-      expect(element.y + element.height).toBeLessThanOrEqual(SLIDE_SIZE.height)
-    }
-  })
-})
+import { DeckHistory, findElement, findSlide, withElements } from './deck.ts'
+import { newDeck } from './model.ts'
 
 describe('DeckHistory', () => {
   it('steps back and forward with the labels of the steps', () => {
     const start = newDeck('Pitch')
     const history = new DeckHistory(start)
-    const added = addSlide(start, 'blank').deck
-    history.commit(added, 'New Slide')
+    const next = { ...start, title: 'Pitch 2' }
+    history.commit(next, 'Rename')
 
-    expect(history.undo()).toBe('New Slide')
+    expect(history.undoLabel).toBe('Rename')
+    expect(history.undo()).toBe('Rename')
     expect(history.present).toBe(start)
     expect(history.canRedo).toBe(true)
-    expect(history.redo()).toBe('New Slide')
-    expect(history.present).toBe(added)
+    expect(history.redo()).toBe('Rename')
+    expect(history.present).toBe(next)
     expect(history.redo()).toBeNull()
   })
 
   it('forgets what was undone once something new is done, and ignores a change that changes nothing', () => {
     const start = newDeck('Pitch')
     const history = new DeckHistory(start)
-    history.commit(addSlide(start, 'blank').deck, 'New Slide')
+    history.commit({ ...start, title: 'A' }, 'A')
     history.undo()
     history.commit(start, 'Nothing')
-    history.commit(removeSlide(start, start.slides[0].id), 'Delete Slide')
+    history.commit({ ...start, title: 'B' }, 'B')
 
     expect(history.canRedo).toBe(false)
-    expect(history.undo()).toBe('Delete Slide')
+    expect(history.undo()).toBe('B')
     expect(history.canUndo).toBe(false)
+  })
+
+  it('joins quick changes with the same key into one step, and only those', () => {
+    const start = newDeck('Pitch')
+    const history = new DeckHistory(start)
+    history.commit({ ...start, title: '1' }, 'Nudge', 'nudge:a', 1000)
+    history.commit({ ...start, title: '2' }, 'Nudge', 'nudge:a', 1500)
+    history.commit({ ...start, title: '3' }, 'Nudge', 'nudge:a', 2000)
+
+    expect(history.present.title).toBe('3')
+    expect(history.undo()).toBe('Nudge')
+    expect(history.present).toBe(start)
+
+    history.commit({ ...start, title: '4' }, 'Nudge', 'nudge:a', 10_000)
+    history.commit({ ...start, title: '5' }, 'Nudge', 'nudge:a', 13_000)
+    expect(history.undo()).toBe('Nudge')
+    expect(history.present.title).toBe('4')
+  })
+
+  it('keeps at most its limit of steps', () => {
+    const start = newDeck('Pitch')
+    const history = new DeckHistory(start, 3)
+
+    for (let i = 0; i < 6; i++) {
+      history.commit({ ...start, title: String(i) }, `Step ${i}`)
+    }
+
+    expect([history.undo(), history.undo(), history.undo(), history.undo()]).toEqual(['Step 5', 'Step 4', 'Step 3', null])
+  })
+})
+
+describe('deck helpers', () => {
+  it('changes only the elements asked for, on their slide', () => {
+    const deck = newDeck('Pitch')
+    const slide = deck.slides[0]
+    const [title, subtitle] = slide.elements
+    const next = withElements(deck, slide.id, new Set([title.id]), (element) => ({ ...element, x: 1 }))
+
+    expect(findElement(findSlide(next, slide.id), title.id)?.x).toBe(1)
+    expect(findElement(findSlide(next, slide.id), subtitle.id)).toBe(subtitle)
   })
 })

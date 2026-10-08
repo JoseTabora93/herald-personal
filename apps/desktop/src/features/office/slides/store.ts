@@ -1,7 +1,7 @@
 import { atom } from 'nanostores'
 import { createSession } from '../session.ts'
 import { slidesAdapter } from './adapter.ts'
-import type { SlidesDocument } from './model.ts'
+import type { SlidesDocument } from './document.ts'
 
 /** Herald Slides' open decks in this window. */
 export const slidesSession = createSession(slidesAdapter)

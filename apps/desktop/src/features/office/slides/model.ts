@@ -1,133 +1,515 @@
-import { type Deck, DeckHistory, findSlide, type Slide } from './deck.ts'
+import type { ArrowHead, Background, Box, Color, Deck, Fill, LayoutId, ListKind, ShapeKind, Slide, SlideElement, SlideSize, Stroke, TextAlign, Theme, Transition } from './deck.ts'
+import { findElement, findSlide, newId, SLIDE_SIZES, withElements, withSlide } from './deck.ts'
+import { boundsOf, boundsOfAll, copyElement, coverCrop, DEFAULT_LINE, imageElement, keepOnSlide, lineElement, moveElement, type Point, shapeElement, textElement, withBox } from './elements.ts'
+import { changeLayout, isEmptyPlaceholder, LAYOUT_NAMES, newSlide, placeholderFor } from './layouts.ts'
+import { DEFAULT_THEME, themeById } from './themes.ts'
+import { MAX_LEVEL, plainText, textBody } from './text.ts'
 
 /*
- * One open deck in the editor: its history, the slide in front, what is selected and what is being
- * typed into. A drag shows its deck as a preview and becomes one step when it ends.
+ * What can be done to a deck, as pure functions: each takes a deck and gives the next one with the
+ * name of the step, so the editor, the menus and Hermes's commands make the same change, the live
+ * deck in a window records it as one step to undo, and a deck read from disk takes it the same way.
+ * Slides and elements are named by id; nothing here touches the screen or the disk.
  */
-export class SlidesDocument {
-  readonly history: DeckHistory
-  slideId: string
-  selected: string | null = null
-  editing: string | null = null
-  /** A deck shown while a drag is under way, not yet a step. */
-  preview: Deck | null = null
-  revision = 0
-  private readonly listeners = new Set<() => void>()
 
-  constructor(
-    deck: Deck,
-    private readonly onEdit: () => void
-  ) {
-    this.history = new DeckHistory(deck)
-    this.slideId = deck.slides[0]?.id ?? ''
+export interface DeckChange {
+  deck: Deck
+  label: string
+  /** Where the editor goes afterwards: the slide in front and what is selected. */
+  focus?: { slideId?: string; selected?: string[] }
+  /** Changes with the same key in quick succession are one step (nudging with the arrow keys). */
+  join?: string
+}
+
+const unchanged = (deck: Deck, label: string): DeckChange => ({ deck, label })
+
+export function newDeck(title: string, options: { size?: SlideSize; theme?: Theme } = {}): Deck {
+  const size = options.size ?? SLIDE_SIZES.wide
+
+  return { id: newId('deck'), title, size: { ...size }, theme: options.theme ?? DEFAULT_THEME, transition: 'fade', slides: [newSlide('title', size)] }
+}
+
+function requireSlide(deck: Deck, slideId: string): Slide {
+  const slide = findSlide(deck, slideId)
+
+  if (!slide) {
+    throw new Error(`There is no slide ${slideId} in this presentation`)
   }
 
-  get deck(): Deck {
-    return this.preview ?? this.history.present
+  return slide
+}
+
+/** Paragraphs from lines of text: leading tabs or pairs of spaces make deeper list levels. */
+function linesToParagraphs(lines: readonly string[], list: ListKind | null | undefined, base: { align?: TextAlign; spaceAfter?: number } = {}) {
+  return lines.map((line) => {
+    const indent = /^(\t| {2})*/.exec(line)?.[0] ?? ''
+    const level = Math.min(MAX_LEVEL, (indent.match(/\t| {2}/g) ?? []).length)
+    const text = line.slice(indent.length)
+
+    return { ...base, ...(list ? { list, level } : {}), runs: [{ text }] }
+  })
+}
+
+/**
+ * A slide's text element of a role, made from its layout's placeholder when the slide has none. A
+ * slide's text is its body, or else its subtitle (a title or section slide) or caption.
+ */
+function ensureText(slide: Slide, role: 'title' | 'body', size: SlideSize, nth = 0): { slide: Slide; element: SlideElement } {
+  const found = placeholderFor(slide, role, nth) ?? (role === 'body' && nth === 0 ? (placeholderFor(slide, 'subtitle') ?? placeholderFor(slide, 'caption')) : undefined)
+
+  if (found) {
+    return { slide, element: found }
   }
 
-  get slide(): Slide {
-    return findSlide(this.deck, this.slideId) ?? this.deck.slides[0]
+  const layout: LayoutId = role === 'title' ? (slide.layout === 'blank' ? 'title-only' : slide.layout) : slide.layout === 'title' || slide.layout === 'blank' || slide.layout === 'title-only' || slide.layout === 'section' ? 'title-content' : slide.layout
+  const moved = changeLayout(slide, layout, size)
+  const element = placeholderFor(moved, role, nth)
+
+  if (!element) {
+    throw new Error(`Slide layout ${LAYOUT_NAMES[layout]} has no place for ${role === 'title' ? 'a title' : 'text'}`)
   }
 
-  get index(): number {
-    return Math.max(0, this.deck.slides.findIndex((slide) => slide.id === this.slide.id))
+  return { slide: moved, element }
+}
+
+// --- Slides --------------------------------------------------------------------------------------
+
+/** A new slide after `after` (at the end without one), with its title and text when given. */
+export function addSlide(deck: Deck, options: { layout?: LayoutId; after?: string | null; title?: string; body?: string | string[] } = {}): DeckChange & { slideId: string } {
+  const slide = newSlide(options.layout ?? 'title-content', deck.size)
+  const index = options.after ? deck.slides.findIndex((entry) => entry.id === options.after) + 1 : deck.slides.length
+  const slides = [...deck.slides]
+  slides.splice(index > 0 ? index : slides.length, 0, slide)
+  let next: Deck = { ...deck, slides }
+
+  if (options.title !== undefined) {
+    next = setTitle(next, slide.id, options.title).deck
   }
 
-  subscribe(listener: () => void): () => void {
-    this.listeners.add(listener)
-
-    return () => this.listeners.delete(listener)
+  if (options.body !== undefined) {
+    next = setBody(next, slide.id, options.body).deck
   }
 
-  private changed(): void {
-    this.revision++
-    this.listeners.forEach((listener) => listener())
-  }
+  return { deck: next, label: 'New Slide', slideId: slide.id, focus: { slideId: slide.id, selected: [] } }
+}
 
-  /** Keep the slide in front and the selection pointing at things that exist. */
-  private settle(): void {
-    if (!findSlide(this.deck, this.slideId)) {
-      this.slideId = this.deck.slides[Math.min(this.index, this.deck.slides.length - 1)]?.id ?? this.deck.slides[0].id
+export function duplicateSlides(deck: Deck, ids: readonly string[]): DeckChange {
+  const wanted = new Set(ids)
+  const copies: string[] = []
+  const slides = deck.slides.flatMap((slide) => {
+    if (!wanted.has(slide.id)) {
+      return [slide]
     }
 
-    const ids = new Set(this.slide.elements.map((element) => element.id))
+    const copy: Slide = { ...slide, id: newId('slide'), elements: slide.elements.map(copyElement) }
+    copies.push(copy.id)
 
-    if (this.selected && !ids.has(this.selected)) {
-      this.selected = null
+    return [slide, copy]
+  })
+
+  return copies.length ? { deck: { ...deck, slides }, label: copies.length > 1 ? 'Duplicate Slides' : 'Duplicate Slide', focus: { slideId: copies[0], selected: [] } } : unchanged(deck, 'Duplicate Slide')
+}
+
+/** The deck without some slides; at least one stays (the last one left is emptied instead). */
+export function removeSlides(deck: Deck, ids: readonly string[]): DeckChange {
+  const wanted = new Set(ids)
+  const first = deck.slides.findIndex((slide) => wanted.has(slide.id))
+  let slides = deck.slides.filter((slide) => !wanted.has(slide.id))
+
+  if (first < 0) {
+    return unchanged(deck, 'Delete Slide')
+  }
+
+  if (!slides.length) {
+    slides = [newSlide('blank', deck.size)]
+  }
+
+  const focus = slides[Math.min(first, slides.length - 1)].id
+
+  return { deck: { ...deck, slides }, label: ids.length > 1 ? 'Delete Slides' : 'Delete Slide', focus: { slideId: focus, selected: [] } }
+}
+
+/** Slides moved together (in their order) to sit before the slide now at `toIndex`, counted without them. */
+export function moveSlides(deck: Deck, ids: readonly string[], toIndex: number): DeckChange {
+  const wanted = new Set(ids)
+  const moving = deck.slides.filter((slide) => wanted.has(slide.id))
+  const rest = deck.slides.filter((slide) => !wanted.has(slide.id))
+  const at = Math.max(0, Math.min(rest.length, Math.round(toIndex)))
+  const slides = [...rest.slice(0, at), ...moving, ...rest.slice(at)]
+
+  if (!moving.length || slides.every((slide, index) => slide === deck.slides[index])) {
+    return unchanged(deck, 'Move Slide')
+  }
+
+  return { deck: { ...deck, slides }, label: moving.length > 1 ? 'Move Slides' : 'Move Slide', focus: { slideId: moving[0].id } }
+}
+
+export function setHidden(deck: Deck, ids: readonly string[], hidden: boolean): DeckChange {
+  const wanted = new Set(ids)
+
+  return { deck: { ...deck, slides: deck.slides.map((slide) => (wanted.has(slide.id) && slide.hidden !== hidden ? { ...slide, hidden } : slide)) }, label: hidden ? 'Hide Slide' : 'Show Slide' }
+}
+
+export function setLayout(deck: Deck, slideId: string, layout: LayoutId): DeckChange {
+  requireSlide(deck, slideId)
+
+  return { deck: withSlide(deck, slideId, (slide) => changeLayout(slide, layout, deck.size)), label: 'Layout', focus: { selected: [] } }
+}
+
+/** A background for some slides, or all of them; null goes back to the theme's. */
+export function setBackground(deck: Deck, ids: readonly string[] | 'all', background: Background | null): DeckChange {
+  const wanted = ids === 'all' ? null : new Set(ids)
+
+  return { deck: { ...deck, slides: deck.slides.map((slide) => (!wanted || wanted.has(slide.id) ? { ...slide, background } : slide)) }, label: 'Background' }
+}
+
+export function setNotes(deck: Deck, slideId: string, notes: string): DeckChange {
+  const slide = requireSlide(deck, slideId)
+
+  return slide.notes === notes ? unchanged(deck, 'Speaker Notes') : { deck: withSlide(deck, slideId, (entry) => ({ ...entry, notes })), label: 'Speaker Notes' }
+}
+
+/** The slide's title, in its title placeholder (the slide gets one from its layout if it has none). */
+export function setTitle(deck: Deck, slideId: string, text: string): DeckChange {
+  const { slide, element } = ensureText(requireSlide(deck, slideId), 'title', deck.size)
+
+  if (element.kind !== 'text' && element.kind !== 'shape') {
+    throw new Error('The title is not text')
+  }
+
+  const lines = text.split('\n')
+  const first = element.body.paragraphs[0]
+  const body = { ...element.body, paragraphs: lines.map((line) => ({ ...first, runs: [{ text: line }] })) }
+  const next = { ...slide, elements: slide.elements.map((entry) => (entry.id === element.id ? { ...element, body } : entry)) }
+
+  return { deck: withSlide(deck, slideId, () => next), label: 'Title', focus: { slideId, selected: [element.id] } }
+}
+
+/**
+ * The slide's text, a paragraph a line, in its `nth` text placeholder. Body placeholders keep their
+ * bullets unless `list` says otherwise (null for none).
+ */
+export function setBody(deck: Deck, slideId: string, text: string | readonly string[], options: { list?: ListKind | null; nth?: number } = {}): DeckChange {
+  const { slide, element } = ensureText(requireSlide(deck, slideId), 'body', deck.size, options.nth ?? 0)
+
+  if (element.kind !== 'text' && element.kind !== 'shape') {
+    throw new Error('That is not text')
+  }
+
+  const first = element.body.paragraphs[0]
+  const list = options.list === undefined ? first?.list : options.list
+  const lines = typeof text === 'string' ? text.split('\n') : [...text]
+  const paragraphs = linesToParagraphs(lines.length ? lines : [''], list, { align: first?.align, spaceAfter: first?.spaceAfter })
+  const body = { ...element.body, paragraphs }
+  const next = { ...slide, elements: slide.elements.map((entry) => (entry.id === element.id ? { ...element, body } : entry)) }
+
+  return { deck: withSlide(deck, slideId, () => next), label: 'Text', focus: { slideId, selected: [element.id] } }
+}
+
+/** A built-in theme by id, or a theme: everything naming a slot or a theme font takes the new one. */
+export function applyTheme(deck: Deck, theme: Theme | string): DeckChange {
+  const next = typeof theme === 'string' ? themeById(theme) : theme
+
+  if (!next) {
+    throw new Error(`There is no theme called ${String(theme)}`)
+  }
+
+  return next === deck.theme ? unchanged(deck, 'Theme') : { deck: { ...deck, theme: next }, label: 'Theme' }
+}
+
+/** A new slide size: everything is moved and widened in proportion across, and kept as tall. */
+export function setSize(deck: Deck, size: SlideSize): DeckChange {
+  if (size.width === deck.size.width && size.height === deck.size.height) {
+    return unchanged(deck, 'Slide Size')
+  }
+
+  const sx = size.width / deck.size.width
+  const sy = size.height / deck.size.height
+  const scale = (element: SlideElement): SlideElement => withBox(element, { x: element.x * sx, y: element.y * sy, width: element.width * sx, height: element.height * sy })
+
+  return { deck: { ...deck, size: { ...size }, slides: deck.slides.map((slide) => ({ ...slide, elements: slide.elements.map(scale) })) }, label: 'Slide Size' }
+}
+
+export const setTransition = (deck: Deck, transition: Transition): DeckChange => ({ deck: { ...deck, transition }, label: 'Transition' })
+
+// --- Elements ------------------------------------------------------------------------------------
+
+/** Elements added on top of a slide, kept at least partly on it. */
+export function insertElements(deck: Deck, slideId: string, elements: readonly SlideElement[], label: string): DeckChange {
+  requireSlide(deck, slideId)
+  const placed = elements.map((element) => keepOnSlide(element, deck.size))
+
+  return { deck: withSlide(deck, slideId, (slide) => ({ ...slide, elements: [...slide.elements, ...placed] })), label, focus: { slideId, selected: placed.map((element) => element.id) } }
+}
+
+const middle = (deck: Deck, width: number, height: number): Box => ({ x: (deck.size.width - width) / 2, y: (deck.size.height - height) / 2, width, height })
+
+export interface TextOptions {
+  text: string
+  x?: number
+  y?: number
+  width?: number
+  height?: number
+  size?: number
+  color?: Color
+  font?: string
+  bold?: boolean
+  italic?: boolean
+  align?: TextAlign
+  list?: ListKind | null
+}
+
+export function addText(deck: Deck, slideId: string, options: TextOptions): DeckChange & { elementId: string } {
+  const size = options.size ?? 24
+  const width = options.width ?? Math.min(deck.size.width - 80, 480)
+  const lines = options.text.split('\n')
+  const height = options.height ?? Math.max(size * 1.2 * lines.length + 8, 24)
+  const box = { ...middle(deck, width, height), ...(options.x !== undefined ? { x: options.x } : {}), ...(options.y !== undefined ? { y: options.y } : {}) }
+  const body = textBody({ font: options.font ?? '+body', size, color: options.color ?? 'tx1', ...(options.bold ? { bold: true } : {}), ...(options.italic ? { italic: true } : {}) }, { fit: 'grow' })
+  const element = textElement(box, { ...body, paragraphs: linesToParagraphs(lines, options.list, { align: options.align ?? 'left' }) })
+  const change = insertElements(deck, slideId, [element], 'New Text Box')
+
+  return { ...change, elementId: element.id }
+}
+
+export interface ShapeOptions {
+  shape: ShapeKind
+  x?: number
+  y?: number
+  width?: number
+  height?: number
+  fill?: Fill | null
+  stroke?: Stroke | null
+  text?: string
+}
+
+export function addShape(deck: Deck, slideId: string, options: ShapeOptions): DeckChange & { elementId: string } {
+  const box = { ...middle(deck, options.width ?? 240, options.height ?? 160), ...(options.x !== undefined ? { x: options.x } : {}), ...(options.y !== undefined ? { y: options.y } : {}) }
+  const element = shapeElement(options.shape, box, { ...(options.fill !== undefined ? { fill: options.fill } : {}), ...(options.stroke !== undefined ? { stroke: options.stroke } : {}) })
+  const withText = options.text ? { ...element, body: { ...element.body, paragraphs: linesToParagraphs(options.text.split('\n'), null, { align: 'center' }) } } : element
+  const change = insertElements(deck, slideId, [withText], 'New Shape')
+
+  return { ...change, elementId: element.id }
+}
+
+export interface ImageOptions {
+  src: string
+  natural: { width: number; height: number }
+  x?: number
+  y?: number
+  width?: number
+  height?: number
+  alt?: string
+}
+
+/**
+ * A picture on a slide: into the slide's empty picture placeholder (cut to fill it) when no place
+ * is asked for, otherwise where asked, at its own proportions within the slide when no size is.
+ */
+export function addImage(deck: Deck, slideId: string, options: ImageOptions): DeckChange & { elementId: string } {
+  const slide = requireSlide(deck, slideId)
+  const free = options.x === undefined && options.y === undefined && options.width === undefined ? slide.elements.find((element) => element.placeholder?.role === 'picture' && isEmptyPlaceholder(element)) : undefined
+
+  if (free) {
+    const filled = { ...free, src: options.src, natural: options.natural, crop: coverCrop(options.natural, free), ...(options.alt ? { alt: options.alt } : {}) } as SlideElement
+
+    return { deck: withSlide(deck, slideId, (entry) => ({ ...entry, elements: entry.elements.map((element) => (element.id === free.id ? filled : element)) })), label: 'Picture', elementId: free.id, focus: { slideId, selected: [free.id] } }
+  }
+
+  const ratio = options.natural.width && options.natural.height ? options.natural.width / options.natural.height : 4 / 3
+  const most = { width: deck.size.width * 0.6, height: deck.size.height * 0.6 }
+  let width = options.width ?? (options.height ? options.height * ratio : Math.min(most.width, most.height * ratio, options.natural.width || most.width))
+  let height = options.height ?? width / ratio
+
+  if (!options.width && !options.height && height > most.height) {
+    height = most.height
+    width = height * ratio
+  }
+
+  const box = { ...middle(deck, width, height), ...(options.x !== undefined ? { x: options.x } : {}), ...(options.y !== undefined ? { y: options.y } : {}) }
+  const element = imageElement(options.src, options.natural, box, options.alt ? { alt: options.alt } : {})
+  const change = insertElements(deck, slideId, [element], 'New Picture')
+
+  return { ...change, elementId: element.id }
+}
+
+export function addLine(deck: Deck, slideId: string, options: { from: Point; to: Point; stroke?: Stroke; start?: ArrowHead; end?: ArrowHead }): DeckChange & { elementId: string } {
+  const element = lineElement(options.from, options.to, { stroke: options.stroke ?? DEFAULT_LINE, start: options.start ?? 'none', end: options.end ?? 'none' })
+  const change = insertElements(deck, slideId, [element], 'New Line')
+
+  return { ...change, elementId: element.id }
+}
+
+/** Some elements changed alike, as one step called `label`. */
+export function updateElements(deck: Deck, slideId: string, ids: readonly string[], change: (element: SlideElement) => SlideElement, label: string): DeckChange {
+  requireSlide(deck, slideId)
+
+  return { deck: withElements(deck, slideId, new Set(ids), change), label, focus: { slideId, selected: [...ids] } }
+}
+
+export function removeElements(deck: Deck, slideId: string, ids: readonly string[]): DeckChange {
+  const wanted = new Set(ids)
+
+  return { deck: withSlide(deck, slideId, (slide) => ({ ...slide, elements: slide.elements.filter((element) => !wanted.has(element.id)) })), label: 'Delete', focus: { slideId, selected: [] } }
+}
+
+/** Copies of elements (as they were), shifted by `offset` points, on top of the slide. */
+export function pasteElements(deck: Deck, slideId: string, elements: readonly SlideElement[], offset = 0, label = 'Paste'): DeckChange {
+  const copies = elements.map((element) => {
+    const copy = copyElement(offset ? moveElement(element, offset, offset) : element)
+    // A pasted placeholder is an ordinary element: the slide's own placeholder stays the one.
+    delete copy.placeholder
+
+    return copy
+  })
+
+  return insertElements(deck, slideId, copies, label)
+}
+
+export function duplicateElements(deck: Deck, slideId: string, ids: readonly string[], offset = 12): DeckChange {
+  const slide = requireSlide(deck, slideId)
+  const chosen = slide.elements.filter((element) => ids.includes(element.id))
+
+  return chosen.length ? pasteElements(deck, slideId, chosen, offset, 'Duplicate') : unchanged(deck, 'Duplicate')
+}
+
+export type Arrangement = 'front' | 'back' | 'forward' | 'backward'
+
+export const ARRANGE_LABELS: Record<Arrangement, string> = { front: 'Bring to Front', back: 'Send to Back', forward: 'Bring Forward', backward: 'Send Backward' }
+
+/** Elements moved up or down the slide's stack, keeping their order among themselves. */
+export function arrange(deck: Deck, slideId: string, ids: readonly string[], how: Arrangement): DeckChange {
+  const wanted = new Set(ids)
+  const slide = requireSlide(deck, slideId)
+  let elements = [...slide.elements]
+
+  if (how === 'front' || how === 'back') {
+    const moving = elements.filter((element) => wanted.has(element.id))
+    const rest = elements.filter((element) => !wanted.has(element.id))
+    elements = how === 'front' ? [...rest, ...moving] : [...moving, ...rest]
+  } else if (how === 'forward') {
+    for (let i = elements.length - 2; i >= 0; i--) {
+      if (wanted.has(elements[i].id) && !wanted.has(elements[i + 1].id)) {
+        ;[elements[i], elements[i + 1]] = [elements[i + 1], elements[i]]
+      }
+    }
+  } else {
+    for (let i = 1; i < elements.length; i++) {
+      if (wanted.has(elements[i].id) && !wanted.has(elements[i - 1].id)) {
+        ;[elements[i], elements[i - 1]] = [elements[i - 1], elements[i]]
+      }
+    }
+  }
+
+  return { deck: withSlide(deck, slideId, (entry) => ({ ...entry, elements })), label: ARRANGE_LABELS[how], focus: { slideId, selected: [...ids] } }
+}
+
+export type AlignEdge = 'left' | 'center' | 'right' | 'top' | 'middle' | 'bottom'
+
+export const ALIGN_LABELS: Record<AlignEdge, string> = { left: 'Align Left', center: 'Align Centre', right: 'Align Right', top: 'Align Top', middle: 'Align Middle', bottom: 'Align Bottom' }
+
+/** Elements lined up by an edge or centre: with each other, or with the slide when there is one (or `toSlide`). */
+export function align(deck: Deck, slideId: string, ids: readonly string[], edge: AlignEdge, toSlide = false): DeckChange {
+  const slide = requireSlide(deck, slideId)
+  const chosen = slide.elements.filter((element) => ids.includes(element.id))
+  const frame = toSlide || chosen.length === 1 ? { x: 0, y: 0, width: deck.size.width, height: deck.size.height } : boundsOfAll(chosen)
+
+  if (!frame) {
+    return unchanged(deck, ALIGN_LABELS[edge])
+  }
+
+  const target = { left: frame.x, center: frame.x + frame.width / 2, right: frame.x + frame.width, top: frame.y, middle: frame.y + frame.height / 2, bottom: frame.y + frame.height }[edge]
+  const change = (element: SlideElement): SlideElement => {
+    const box = boundsOf(element)
+    const at = { left: box.x, center: box.x + box.width / 2, right: box.x + box.width, top: box.y, middle: box.y + box.height / 2, bottom: box.y + box.height }[edge]
+    const horizontal = edge === 'left' || edge === 'center' || edge === 'right'
+
+    return moveElement(element, horizontal ? target - at : 0, horizontal ? 0 : target - at)
+  }
+
+  return { deck: withElements(deck, slideId, new Set(ids), change), label: ALIGN_LABELS[edge], focus: { slideId, selected: [...ids] } }
+}
+
+/** Three or more elements spread so the gaps between them are equal, across or down. */
+export function distribute(deck: Deck, slideId: string, ids: readonly string[], axis: 'horizontal' | 'vertical'): DeckChange {
+  const slide = requireSlide(deck, slideId)
+  const label = axis === 'horizontal' ? 'Distribute Horizontally' : 'Distribute Vertically'
+  const chosen = slide.elements.filter((element) => ids.includes(element.id))
+
+  if (chosen.length < 3) {
+    return unchanged(deck, label)
+  }
+
+  const across = axis === 'horizontal'
+  const start = (box: Box) => (across ? box.x : box.y)
+  const length = (box: Box) => (across ? box.width : box.height)
+  const ordered = [...chosen].sort((a, b) => start(boundsOf(a)) + length(boundsOf(a)) / 2 - (start(boundsOf(b)) + length(boundsOf(b)) / 2))
+  const first = boundsOf(ordered[0])
+  const last = boundsOf(ordered[ordered.length - 1])
+  const used = ordered.reduce((sum, element) => sum + length(boundsOf(element)), 0)
+  const gap = (start(last) + length(last) - start(first) - used) / (ordered.length - 1)
+  const moves = new Map<string, number>()
+  let at = start(first)
+
+  for (const element of ordered) {
+    moves.set(element.id, at - start(boundsOf(element)))
+    at += length(boundsOf(element)) + gap
+  }
+
+  return {
+    deck: withElements(deck, slideId, new Set(ids), (element) => moveElement(element, across ? (moves.get(element.id) ?? 0) : 0, across ? 0 : (moves.get(element.id) ?? 0))),
+    label,
+    focus: { slideId, selected: [...ids] }
+  }
+}
+
+export function nudge(deck: Deck, slideId: string, ids: readonly string[], dx: number, dy: number): DeckChange {
+  return { ...updateElements(deck, slideId, ids, (element) => moveElement(element, dx, dy), 'Nudge'), join: `nudge:${slideId}:${[...ids].sort().join(',')}` }
+}
+
+// --- Reading -------------------------------------------------------------------------------------
+
+/** A slide's title as text (empty when it has none). */
+export function slideTitle(slide: Slide): string {
+  const title = placeholderFor(slide, 'title')
+
+  return title && (title.kind === 'text' || title.kind === 'shape') ? plainText(title.body).trim() : ''
+}
+
+/** The deck in a few lines of text: each slide's number, layout, title and how much is on it, for Hermes. */
+export function outline(deck: Deck): string {
+  return deck.slides
+    .map((slide, index) => {
+      const title = slideTitle(slide)
+      const extra = [slide.hidden ? 'hidden' : '', slide.notes.trim() ? 'with notes' : ''].filter(Boolean).join(', ')
+
+      return `${index + 1}. ${title || '(no title)'}: ${LAYOUT_NAMES[slide.layout]}, ${slide.elements.length} element${slide.elements.length === 1 ? '' : 's'}${extra ? `, ${extra}` : ''}`
+    })
+    .join('\n')
+}
+
+/** The id of the slide at a position (1 is the first) or named by id. */
+export function slideRef(deck: Deck, ref: string | number): string {
+  if (typeof ref === 'number' || /^\d+$/.test(String(ref))) {
+    const slide = deck.slides[Number(ref) - 1]
+
+    if (!slide) {
+      throw new Error(`There is no slide ${ref}; the presentation has ${deck.slides.length}`)
     }
 
-    if (this.editing && !ids.has(this.editing)) {
-      this.editing = null
-    }
+    return slide.id
   }
 
-  commit(next: Deck, label: string, focus?: { slideId?: string; selected?: string | null }): void {
-    this.preview = null
-    this.history.commit(next, label)
+  return requireSlide(deck, String(ref)).id
+}
 
-    if (focus?.slideId) {
-      this.slideId = focus.slideId
-    }
+/** An element of a slide, or an error saying it is not there. */
+export function requireElement(deck: Deck, slideId: string, elementId: string): SlideElement {
+  const element = findElement(requireSlide(deck, slideId), elementId)
 
-    if (focus && 'selected' in focus) {
-      this.selected = focus.selected ?? null
-    }
-
-    this.settle()
-    this.changed()
-    this.onEdit()
+  if (!element) {
+    throw new Error(`There is no element ${elementId} on that slide`)
   }
 
-  show(preview: Deck | null): void {
-    this.preview = preview
-    this.changed()
-  }
-
-  /** Start over from a deck loaded from disk. */
-  reset(deck: Deck): void {
-    this.preview = null
-    this.history.reset(deck)
-    this.settle()
-    this.changed()
-  }
-
-  undo(): string | null {
-    const label = this.history.undo()
-    this.settle()
-    this.changed()
-
-    if (label) {
-      this.onEdit()
-    }
-
-    return label
-  }
-
-  redo(): string | null {
-    const label = this.history.redo()
-    this.settle()
-    this.changed()
-
-    if (label) {
-      this.onEdit()
-    }
-
-    return label
-  }
-
-  goTo(slideId: string): void {
-    if (findSlide(this.deck, slideId) && slideId !== this.slideId) {
-      this.slideId = slideId
-      this.selected = null
-      this.editing = null
-      this.changed()
-    }
-  }
-
-  select(elementId: string | null, editing = false): void {
-    this.selected = elementId
-    this.editing = editing ? elementId : null
-    this.changed()
-  }
+  return element
 }

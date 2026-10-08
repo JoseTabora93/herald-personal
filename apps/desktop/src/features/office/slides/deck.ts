@@ -1,204 +1,315 @@
 /*
- * Herald Slides' deck: slides holding text boxes and shapes, measured in points on a 16:9 page of
- * 960 by 540, as PowerPoint measures its slides. A deck is plain data, replaced on every change, so
- * undo is a step back to an earlier deck; it is drawn by the Herald Canvas engine (render.ts) at
- * whatever size it is shown.
+ * Herald Slides' deck: slides holding text boxes, shapes, lines and pictures on a page measured in
+ * points, as PowerPoint measures its slides (16:9 is 960 by 540, 4:3 is 720 by 540), so every
+ * position is a whole number of EMU (12,700 a point) in a PowerPoint file. A deck is plain data,
+ * replaced on every change, so undo is a step back to an earlier deck. Colours either name one of
+ * the theme's slots or are literal, and fonts either name the theme's heading or body font or a
+ * family: a new theme repaints whatever names a slot or a theme font, and leaves the rest alone.
  */
 
-export const SLIDE_SIZE = { width: 960, height: 540 } as const
+export const EMU_PER_POINT = 12700
 
-export type Align = 'left' | 'center' | 'right'
+export interface SlideSize {
+  width: number
+  height: number
+}
 
-interface Box {
+export const SLIDE_SIZES = { wide: { width: 960, height: 540 }, standard: { width: 720, height: 540 } } as const satisfies Record<string, SlideSize>
+
+export type SizeName = keyof typeof SLIDE_SIZES
+
+export const SLOTS = ['bg1', 'tx1', 'bg2', 'tx2', 'accent1', 'accent2', 'accent3', 'accent4', 'accent5', 'accent6'] as const
+
+/** A theme colour: backgrounds and text (light and dark pairs, as in PowerPoint) and six accents. */
+export type Slot = (typeof SLOTS)[number]
+
+/** A theme slot, or a literal `#rrggbb`. */
+export type Color = Slot | `#${string}`
+
+export interface Theme {
   id: string
+  name: string
+  colors: Record<Slot, string>
+  fonts: { heading: string; body: string }
+}
+
+/** `+heading` and `+body` stand for the theme's fonts; anything else is a family. */
+export type FontRef = '+heading' | '+body' | (string & {})
+
+export interface RunStyle {
+  font?: FontRef
+  /** Points. */
+  size?: number
+  color?: Color
+  bold?: boolean
+  italic?: boolean
+  underline?: boolean
+  strike?: boolean
+  highlight?: Color
+}
+
+export interface TextRun extends RunStyle {
+  /** A `\n` is a line break inside the paragraph. */
+  text: string
+}
+
+export type ListKind = 'bullet' | 'number'
+
+export const NUMBER_STYLES = ['arabicPeriod', 'arabicParenR', 'alphaLcPeriod', 'alphaUcPeriod', 'alphaLcParenR', 'romanLcPeriod', 'romanUcPeriod'] as const
+
+export type NumberStyle = (typeof NUMBER_STYLES)[number]
+
+export type TextAlign = 'left' | 'center' | 'right' | 'justify'
+
+export interface Paragraph {
+  runs: TextRun[]
+  align?: TextAlign
+  list?: ListKind
+  /** 0 to 8. */
+  level?: number
+  /** The bullet's glyph (bullets only). */
+  bullet?: string
+  numbering?: NumberStyle
+  startAt?: number
+  /** A multiple of single spacing. */
+  lineSpacing?: number
+  /** Points. */
+  spaceBefore?: number
+  spaceAfter?: number
+  /** The text's left margin and the first line's indent in points, where a file set them apart from the level's. */
+  margin?: number
+  indent?: number
+}
+
+export type Anchor = 'top' | 'middle' | 'bottom'
+
+/** `shrink` makes text smaller to fit its box; `grow` makes the box as tall as its text. */
+export type AutoFit = 'none' | 'shrink' | 'grow'
+
+export interface BodyStyle extends RunStyle {
+  font: FontRef
+  size: number
+  color: Color
+}
+
+export interface TextBody {
+  paragraphs: Paragraph[]
+  /** What a run has where it says nothing itself. */
+  style: BodyStyle
+  anchor: Anchor
+  /** Left, top, right and bottom, in points. */
+  inset: [number, number, number, number]
+  fit: AutoFit
+  wrap: boolean
+}
+
+export type PlaceholderRole = 'title' | 'subtitle' | 'body' | 'heading' | 'caption' | 'picture'
+
+export interface Placeholder {
+  role: PlaceholderRole
+  /** Shown while it is empty ("Click to add title"); never presented, printed or saved as text. */
+  prompt: string
+}
+
+/** An element's box before rotation, in points from the slide's top left. */
+export interface Box {
   x: number
   y: number
   width: number
   height: number
 }
 
-export interface TextBox extends Box {
-  kind: 'text'
-  text: string
+interface Frame extends Box {
+  id: string
+  /** Degrees clockwise about the box's centre. */
+  rotation: number
+  flipH?: boolean
+  flipV?: boolean
+  name?: string
+  placeholder?: Placeholder
+}
+
+export interface Fill {
+  color: Color
+  /** 0 (clear) to 1 (solid). */
+  alpha?: number
+}
+
+export const DASHES = ['solid', 'dash', 'dot', 'dashDot', 'longDash'] as const
+
+export type Dash = (typeof DASHES)[number]
+
+export interface Stroke {
+  color: Color
   /** Points. */
-  size: number
-  bold: boolean
-  italic: boolean
-  color: string
-  align: Align
-  /** Shown in the editor while the box is empty ("Click to add title"); never drawn. */
-  placeholder?: string
+  width: number
+  dash: Dash
+  alpha?: number
 }
 
-export interface ShapeBox extends Box {
+export const ARROW_HEADS = ['none', 'triangle', 'arrow', 'stealth', 'oval', 'diamond'] as const
+
+export type ArrowHead = (typeof ARROW_HEADS)[number]
+
+/** DrawingML's preset names, so a file keeps the very shape. */
+export const SHAPE_KINDS = [
+  'rect',
+  'roundRect',
+  'ellipse',
+  'triangle',
+  'rtTriangle',
+  'diamond',
+  'parallelogram',
+  'trapezoid',
+  'pentagon',
+  'hexagon',
+  'octagon',
+  'plus',
+  'star5',
+  'rightArrow',
+  'leftArrow',
+  'upArrow',
+  'downArrow',
+  'leftRightArrow',
+  'chevron',
+  'homePlate',
+  'wedgeRectCallout',
+  'wedgeRoundRectCallout'
+] as const
+
+export type ShapeKind = (typeof SHAPE_KINDS)[number]
+
+/** How much of a picture is cut off at each side, as fractions of it. */
+export interface Crop {
+  left: number
+  top: number
+  right: number
+  bottom: number
+}
+
+export interface TextElement extends Frame {
+  kind: 'text'
+  body: TextBody
+  fill: Fill | null
+  stroke: Stroke | null
+}
+
+export interface ShapeElement extends Frame {
   kind: 'shape'
-  shape: 'rectangle' | 'ellipse'
-  fill: string
-  /** Corner radius in points, for rectangles. */
-  radius: number
+  shape: ShapeKind
+  fill: Fill | null
+  stroke: Stroke | null
+  body: TextBody
+  /** DrawingML's adjust values by guide name (`adj`, `adj1`…), where they differ from the preset's. */
+  adjust?: Record<string, number>
 }
 
-export type SlideElement = TextBox | ShapeBox
+export interface ImageElement extends Frame {
+  kind: 'image'
+  /** A data URL. */
+  src: string
+  /** The picture's own size in pixels. */
+  natural: { width: number; height: number }
+  crop?: Crop
+  alt?: string
+  stroke: Stroke | null
+}
+
+/** A straight line across its box: from the top left to the bottom right, unless flipped. */
+export interface LineElement extends Frame {
+  kind: 'line'
+  stroke: Stroke
+  /** The ends at the line's start and at its end. */
+  start: ArrowHead
+  end: ArrowHead
+}
+
+export type SlideElement = TextElement | ShapeElement | ImageElement | LineElement
+
+export type ElementKind = SlideElement['kind']
+
+export interface GradientStop {
+  /** 0 to 1 along the gradient. */
+  at: number
+  color: Color
+}
+
+export type Background =
+  | { kind: 'solid'; color: Color }
+  /** `angle` in degrees: 0 runs left to right, 90 top to bottom. */
+  | { kind: 'gradient'; stops: GradientStop[]; angle: number }
+  | { kind: 'image'; src: string; natural: { width: number; height: number } }
+
+export const LAYOUTS = ['title', 'title-content', 'two-content', 'section', 'title-only', 'blank', 'picture-caption', 'comparison'] as const
+
+export type LayoutId = (typeof LAYOUTS)[number]
 
 export interface Slide {
   id: string
-  background: string
+  layout: LayoutId
+  /** Null: the theme's background. */
+  background: Background | null
   elements: SlideElement[]
   notes: string
+  hidden: boolean
 }
 
-export interface DeckTheme {
-  font: string
-  text: string
-  accent: string
-  background: string
-}
+export const TRANSITIONS = ['none', 'fade', 'push'] as const
+
+export type Transition = (typeof TRANSITIONS)[number]
 
 export interface Deck {
   id: string
   title: string
-  theme: DeckTheme
+  size: SlideSize
+  theme: Theme
+  /** How one slide gives way to the next when presenting. */
+  transition: Transition
   slides: Slide[]
 }
 
-export type Layout = 'title' | 'title-body' | 'blank'
-
-export const LAYOUT_NAMES: Record<Layout, string> = { title: 'Title slide', 'title-body': 'Title and text', blank: 'Blank' }
-
-export const DEFAULT_THEME: DeckTheme = { font: 'Helvetica', text: '#1b2340', accent: '#2f7dff', background: '#ffffff' }
-
 let counter = 0
+
 export const newId = (prefix: string): string => `${prefix}-${(++counter).toString(36)}${Math.random().toString(36).slice(2, 7)}`
 
-export function textBox(patch: Partial<TextBox> & Pick<TextBox, 'x' | 'y' | 'width' | 'height'>, theme: DeckTheme = DEFAULT_THEME): TextBox {
-  return { id: newId('text'), kind: 'text', text: '', size: 24, bold: false, italic: false, color: theme.text, align: 'left', ...patch }
-}
-
-export function shapeBox(patch: Partial<ShapeBox> & Pick<ShapeBox, 'x' | 'y' | 'width' | 'height'>, theme: DeckTheme = DEFAULT_THEME): ShapeBox {
-  return { id: newId('shape'), kind: 'shape', shape: 'rectangle', fill: theme.accent, radius: 0, ...patch }
-}
-
-/** A slide with the boxes a layout puts on it. */
-export function slideWith(layout: Layout, theme: DeckTheme = DEFAULT_THEME): Slide {
-  const { width } = SLIDE_SIZE
-  const elements: SlideElement[] =
-    layout === 'title'
-      ? [
-          textBox({ x: 80, y: 170, width: width - 160, height: 90, size: 48, bold: true, align: 'center', placeholder: 'Click to add a title' }, theme),
-          textBox({ x: 80, y: 280, width: width - 160, height: 60, size: 24, align: 'center', placeholder: 'Click to add a subtitle' }, theme)
-        ]
-      : layout === 'title-body'
-        ? [textBox({ x: 60, y: 40, width: width - 120, height: 70, size: 36, bold: true, placeholder: 'Click to add a title' }, theme), textBox({ x: 60, y: 130, width: width - 120, height: 360, size: 22, placeholder: 'Click to add text' }, theme)]
-        : []
-
-  return { id: newId('slide'), background: theme.background, elements, notes: '' }
-}
-
-export function newDeck(title: string, id = newId('deck')): Deck {
-  return { id, title, theme: DEFAULT_THEME, slides: [slideWith('title')] }
-}
-
-const withSlide = (deck: Deck, slideId: string, change: (slide: Slide) => Slide): Deck => ({ ...deck, slides: deck.slides.map((slide) => (slide.id === slideId ? change(slide) : slide)) })
-
-/** A new slide after `afterId` (at the end without one). */
-export function addSlide(deck: Deck, layout: Layout, afterId?: string | null): { deck: Deck; slideId: string } {
-  const slide = slideWith(layout, deck.theme)
-  const index = afterId ? deck.slides.findIndex((entry) => entry.id === afterId) + 1 : deck.slides.length
-  const slides = [...deck.slides]
-  slides.splice(index > 0 ? index : slides.length, 0, slide)
-
-  return { deck: { ...deck, slides }, slideId: slide.id }
-}
-
-/** The deck without a slide; the last slide stays, emptied, since a deck has at least one. */
-export function removeSlide(deck: Deck, slideId: string): Deck {
-  if (deck.slides.length === 1) {
-    return { ...deck, slides: [slideWith('blank', deck.theme)] }
-  }
-
-  return { ...deck, slides: deck.slides.filter((slide) => slide.id !== slideId) }
-}
-
-export function duplicateSlide(deck: Deck, slideId: string): { deck: Deck; slideId: string } {
-  const index = deck.slides.findIndex((slide) => slide.id === slideId)
-
-  if (index < 0) {
-    return { deck, slideId }
-  }
-
-  const source = deck.slides[index]
-  const copy: Slide = { ...source, id: newId('slide'), elements: source.elements.map((element) => ({ ...element, id: newId(element.kind) })) }
-  const slides = [...deck.slides]
-  slides.splice(index + 1, 0, copy)
-
-  return { deck: { ...deck, slides }, slideId: copy.id }
-}
-
-export function moveSlide(deck: Deck, slideId: string, toIndex: number): Deck {
-  const from = deck.slides.findIndex((slide) => slide.id === slideId)
-
-  if (from < 0) {
-    return deck
-  }
-
-  const slides = [...deck.slides]
-  const [slide] = slides.splice(from, 1)
-  slides.splice(Math.max(0, Math.min(slides.length, toIndex)), 0, slide)
-
-  return { ...deck, slides }
-}
-
-/** The smallest box an element keeps, in points. */
-export const MIN_SIDE = 8
-
-/** A box kept at least partly on its slide and no smaller than MIN_SIDE. */
-export function clampBox<T extends Box>(element: T): T {
-  const width = Math.max(MIN_SIDE, element.width)
-  const height = Math.max(MIN_SIDE, element.height)
-  const x = Math.min(SLIDE_SIZE.width - MIN_SIDE, Math.max(MIN_SIDE - width, element.x))
-  const y = Math.min(SLIDE_SIZE.height - MIN_SIDE, Math.max(MIN_SIDE - height, element.y))
-
-  return { ...element, x, y, width, height }
-}
-
-export function addElement(deck: Deck, slideId: string, element: SlideElement): Deck {
-  return withSlide(deck, slideId, (slide) => ({ ...slide, elements: [...slide.elements, clampBox(element)] }))
-}
-
-export function updateElement(deck: Deck, slideId: string, elementId: string, patch: Partial<TextBox> | Partial<ShapeBox>): Deck {
-  return withSlide(deck, slideId, (slide) => ({ ...slide, elements: slide.elements.map((element) => (element.id === elementId ? clampBox({ ...element, ...patch } as SlideElement) : element)) }))
-}
-
-export function removeElement(deck: Deck, slideId: string, elementId: string): Deck {
-  return withSlide(deck, slideId, (slide) => ({ ...slide, elements: slide.elements.filter((element) => element.id !== elementId) }))
-}
-
-/** An element moved to the front or back of its slide. */
-export function arrangeElement(deck: Deck, slideId: string, elementId: string, to: 'front' | 'back'): Deck {
-  return withSlide(deck, slideId, (slide) => {
-    const element = slide.elements.find((entry) => entry.id === elementId)
-    const rest = slide.elements.filter((entry) => entry.id !== elementId)
-
-    return element ? { ...slide, elements: to === 'front' ? [...rest, element] : [element, ...rest] } : slide
-  })
-}
-
-export const setNotes = (deck: Deck, slideId: string, notes: string): Deck => withSlide(deck, slideId, (slide) => ({ ...slide, notes }))
+/** The smallest side a box keeps, in points (a line may be flat). */
+export const MIN_SIDE = 4
 
 export const findSlide = (deck: Deck, slideId: string | null | undefined): Slide | undefined => deck.slides.find((slide) => slide.id === slideId)
+
+export const findElement = (slide: Slide | undefined, elementId: string | null | undefined): SlideElement | undefined => slide?.elements.find((element) => element.id === elementId)
+
+export const withSlide = (deck: Deck, slideId: string, change: (slide: Slide) => Slide): Deck => ({ ...deck, slides: deck.slides.map((slide) => (slide.id === slideId ? change(slide) : slide)) })
+
+export const withElements = (deck: Deck, slideId: string, ids: ReadonlySet<string>, change: (element: SlideElement) => SlideElement): Deck =>
+  withSlide(deck, slideId, (slide) => ({ ...slide, elements: slide.elements.map((element) => (ids.has(element.id) ? change(element) : element)) }))
 
 /** Undo and redo over whole decks, each step with the name the Edit menu shows. */
 export class DeckHistory {
   private past: { deck: Deck; label: string }[] = []
   private future: { deck: Deck; label: string }[] = []
+  /** The last step, while later changes may still join it (typing notes, nudging). */
+  private joinable: { key: string; at: number } | null = null
 
   constructor(
     public present: Deck,
     private readonly limit = 200
   ) {}
 
-  commit(next: Deck, label: string): void {
+  /**
+   * Make `next` the present deck as one step. A change with the same `join` key as the step before
+   * it, within a couple of seconds, becomes part of that step.
+   */
+  commit(next: Deck, label: string, join?: string, now = Date.now()): void {
     if (next === this.present) {
+      return
+    }
+
+    if (join && this.joinable?.key === join && now - this.joinable.at < 2000 && this.past.length) {
+      this.present = next
+      this.future = []
+      this.joinable.at = now
+
       return
     }
 
@@ -206,6 +317,7 @@ export class DeckHistory {
     this.past.splice(0, Math.max(0, this.past.length - this.limit))
     this.future = []
     this.present = next
+    this.joinable = join ? { key: join, at: now } : null
   }
 
   /** Start over from `deck` (a version loaded from disk). */
@@ -213,6 +325,7 @@ export class DeckHistory {
     this.past = []
     this.future = []
     this.present = deck
+    this.joinable = null
   }
 
   undo(): string | null {
@@ -224,6 +337,7 @@ export class DeckHistory {
 
     this.future.push({ deck: this.present, label: step.label })
     this.present = step.deck
+    this.joinable = null
 
     return step.label
   }
@@ -237,6 +351,7 @@ export class DeckHistory {
 
     this.past.push({ deck: this.present, label: step.label })
     this.present = step.deck
+    this.joinable = null
 
     return step.label
   }
@@ -247,5 +362,13 @@ export class DeckHistory {
 
   get canRedo(): boolean {
     return this.future.length > 0
+  }
+
+  get undoLabel(): string | null {
+    return this.past.at(-1)?.label ?? null
+  }
+
+  get redoLabel(): string | null {
+    return this.future.at(-1)?.label ?? null
   }
 }
