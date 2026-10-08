@@ -6,17 +6,23 @@ import { escapeHtml, printPage } from '../print.ts'
 /*
  * The print view of the sheet in front: its used range as a table, with the fonts, fills, borders,
  * alignment, merged cells, sizes and number formats it shows; hidden rows and columns left out.
- * A sheet wider than a portrait page prints landscape.
+ * It prints on the paper the sheet's page setup asks for, turned the way it says, and landscape
+ * when the sheet is wider than the paper.
  */
 
 /** The sheet the window has in front, kept on the snapshot it hands over for saving and printing. */
 export const activeSheetOf = (workbook: WorkbookSnapshot): string | undefined => (typeof workbook.activeSheetId === 'string' ? workbook.activeSheetId : undefined)
 
-/** What fits across an A4 page at 0.5 inch margins, in CSS pixels. */
-const PORTRAIT_WIDTH = 698
+/** Excel's paper sizes that CSS can name, with their width in inches; any other prints on A4. */
+const PAPERS: Record<number, { name: string; width: number }> = { 1: { name: 'letter', width: 8.5 }, 5: { name: 'legal', width: 8.5 }, 8: { name: 'A3', width: 11.69 }, 9: { name: 'A4', width: 8.27 }, 11: { name: 'A5', width: 5.83 } }
+
+const MARGIN_INCHES = 0.5
 
 // The page's size and turn come from its CSS (main prints with the page's own size).
-const pageCss = (landscape: boolean) => `@page { size: A4 ${landscape ? 'landscape' : 'portrait'}; margin: 0.5in; }`
+const pageCss = (paper: string, landscape: boolean) => `@page { size: ${paper} ${landscape ? 'landscape' : 'portrait'}; margin: ${MARGIN_INCHES}in; }`
+
+/** The page setup a sheet brought from its file. */
+const pageSetupOf = (sheet: SheetSnapshot): { orientation?: string; paperSize?: number } => (sheet.custom as { herald?: { page?: { pageSetup?: { orientation?: string; paperSize?: number } } } } | undefined)?.herald?.page?.pageSetup ?? {}
 
 const CSS = `
 body { font: 9pt Arial, Helvetica, sans-serif; color: #000; margin: 0; }
@@ -139,7 +145,7 @@ export function printHtml(workbook: WorkbookSnapshot, title: string, format?: Nu
   const sheet = workbook.sheets[activeSheetOf(workbook) ?? ''] ?? workbook.sheets[workbook.sheetOrder[0]]
 
   if (!sheet) {
-    return { html: printPage(title, `${pageCss(false)}${CSS}`, ''), landscape: false }
+    return { html: printPage(title, `${pageCss('A4', false)}${CSS}`, ''), landscape: false }
   }
 
   const { rows, columns } = usedRange(sheet)
@@ -195,10 +201,12 @@ export function printHtml(workbook: WorkbookSnapshot, title: string, format?: Nu
   const base = styleOf(workbook, workbook.defaultStyle)
   const bodyCss = base?.ff || base?.fs ? `body { font-family: '${String(base.ff ?? 'Arial').replace(/'/g, '')}', Arial, sans-serif; font-size: ${base.fs ?? 9}pt; }` : ''
 
-  const landscape = width > PORTRAIT_WIDTH
+  const setup = pageSetupOf(sheet)
+  const paper = PAPERS[setup.paperSize ?? 9] ?? PAPERS[9]
+  const landscape = setup.orientation === 'landscape' || width > (paper.width - 2 * MARGIN_INCHES) * 96
 
   return {
-    html: printPage(title, `${pageCss(landscape)}${CSS}${bodyCss}`, `<h1>${escapeHtml(sheet.name)}</h1><table style="width:${width}px">${colgroup}${body.join('')}</table>`),
+    html: printPage(title, `${pageCss(paper.name, landscape)}${CSS}${bodyCss}`, `<h1>${escapeHtml(sheet.name)}</h1><table style="width:${width}px">${colgroup}${body.join('')}</table>`),
     landscape
   }
 }

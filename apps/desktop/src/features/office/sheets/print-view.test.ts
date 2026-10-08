@@ -54,6 +54,16 @@ describe('the print view', () => {
     expect(printHtml(wide, 'Book')).toMatchObject({ landscape: true, html: expect.stringContaining('@page { size: A4 landscape;') })
   })
 
+  it('prints on the paper and the way round the sheet’s page setup says', () => {
+    const letter = report()
+    letter.sheets.s.custom = { herald: { page: { pageSetup: { orientation: 'landscape', paperSize: 1 } } } }
+    const unknown = report()
+    unknown.sheets.s.custom = { herald: { page: { pageSetup: { paperSize: 70 } } } }
+
+    expect(printHtml(letter, 'Book')).toMatchObject({ landscape: true, html: expect.stringContaining('@page { size: letter landscape;') })
+    expect(printHtml(unknown, 'Book')).toMatchObject({ landscape: false, html: expect.stringContaining('@page { size: A4 portrait;') })
+  })
+
   it('prints a sheet whose cells have a key that is not a row, as Univer can leave one', () => {
     const workbook = report()
     Object.assign(workbook.sheets.s.cellData, { NaN: { 9: { v: 'stray' } } })
