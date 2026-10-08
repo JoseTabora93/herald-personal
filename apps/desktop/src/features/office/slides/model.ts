@@ -72,8 +72,6 @@ function ensureText(slide: Slide, role: 'title' | 'body', size: SlideSize, nth =
   return { slide: moved, element }
 }
 
-// --- Slides --------------------------------------------------------------------------------------
-
 /** A new slide after `after` (at the end without one), with its title and text when given. */
 export function addSlide(deck: Deck, options: { layout?: LayoutId; after?: string | null; title?: string; body?: string | string[] } = {}): DeckChange & { slideId: string } {
   const slide = newSlide(options.layout ?? 'title-content', deck.size)
@@ -231,8 +229,6 @@ export function setSize(deck: Deck, size: SlideSize): DeckChange {
 }
 
 export const setTransition = (deck: Deck, transition: Transition): DeckChange => ({ deck: { ...deck, transition }, label: 'Transition' })
-
-// --- Elements ------------------------------------------------------------------------------------
 
 /** Elements added on top of a slide, kept at least partly on it. */
 export function insertElements(deck: Deck, slideId: string, elements: readonly SlideElement[], label: string): DeckChange {
@@ -466,8 +462,6 @@ export function distribute(deck: Deck, slideId: string, ids: readonly string[], 
 export function nudge(deck: Deck, slideId: string, ids: readonly string[], dx: number, dy: number): DeckChange {
   return { ...updateElements(deck, slideId, ids, (element) => moveElement(element, dx, dy), 'Nudge'), join: `nudge:${slideId}:${[...ids].sort().join(',')}` }
 }
-
-// --- Reading -------------------------------------------------------------------------------------
 
 /** A slide's title as text (empty when it has none). */
 export function slideTitle(slide: Slide): string {

@@ -39,7 +39,7 @@ type Gesture =
   | { kind: 'line'; base: Deck; id: string; end: 'from' | 'to' }
   | { kind: 'marquee'; start: Point; initial: string[] }
 
-const isTyping = (target: EventTarget | null): boolean => target instanceof Element && Boolean(target.closest('.ProseMirror, input, textarea, select, [contenteditable="true"]'))
+export const isTyping = (target: EventTarget | null): boolean => target instanceof Element && Boolean(target.closest('.ProseMirror, input, textarea, select, [contenteditable="true"]'))
 
 const isTextual = (element: SlideElement | undefined): element is SlideElement & { kind: 'text' | 'shape' } => element?.kind === 'text' || element?.kind === 'shape'
 

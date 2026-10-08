@@ -6,6 +6,7 @@ import { isEmptyPlaceholder } from '../layouts.ts'
 import { arrowHead, dashArray, shapePath, textArea } from '../shapes.ts'
 import { cssColor, resolveColor } from '../themes.ts'
 import { effectiveStyle, isBlank, listMarkers } from '../text.ts'
+import { fitText, shrinkFactors } from './fit.ts'
 import { addSlideStyles } from './slide-css.ts'
 import { flowCss, paragraphCss, runCss } from './text-style.ts'
 
@@ -35,42 +36,6 @@ export function backgroundCss(background: Background | null, theme: Theme): CSSP
   }
 
   return { backgroundColor: theme.colors.bg1, backgroundImage: `url("${background.src}")` }
-}
-
-const MIN_SHRINK = 0.25
-
-/**
- * Shrink a box's text to fit, as PowerPoint's "shrink text on overflow": the largest factor (in
- * steps of 2.5%) at which its paragraphs fit the box's height, set as `--hs-shrink` on the text.
- */
-export function fitText(flow: HTMLElement, available: number): number {
-  const fits = (factor: number) => {
-    flow.style.setProperty('--hs-shrink', String(factor))
-
-    return flow.offsetHeight <= available + 0.5
-  }
-
-  if (fits(1)) {
-    return 1
-  }
-
-  let low = MIN_SHRINK
-  let high = 1
-
-  for (let i = 0; i < 7; i++) {
-    const middle = (low + high) / 2
-
-    if (fits(middle)) {
-      low = middle
-    } else {
-      high = middle
-    }
-  }
-
-  const factor = Math.max(MIN_SHRINK, Math.floor(low * 40) / 40)
-  flow.style.setProperty('--hs-shrink', String(factor))
-
-  return factor
 }
 
 function Paragraphs({ body, theme, prompt }: { body: TextBody; theme: Theme; prompt?: string }) {
@@ -119,7 +84,7 @@ export function TextView({ body, theme, area, prompt, editor, upsideDown }: { bo
   useLayoutEffect(() => {
     if (flow.current && !editor) {
       if (body.fit === 'shrink') {
-        fitText(flow.current, inner.height)
+        shrinkFactors.set(body, fitText(flow.current, inner.height))
       } else {
         flow.current.style.removeProperty('--hs-shrink')
       }

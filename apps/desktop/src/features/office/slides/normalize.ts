@@ -211,8 +211,8 @@ function element(value: unknown): SlideElement | null {
     width: num(value.width, 100, 0),
     height: num(value.height, 100, 0),
     rotation: num(value.rotation, 0, -3600, 3600),
-    ...(value.flipH === true ? { flipH: true } : {}),
-    ...(value.flipV === true ? { flipV: true } : {}),
+    ...(typeof value.flipH === 'boolean' ? { flipH: value.flipH } : {}),
+    ...(typeof value.flipV === 'boolean' ? { flipV: value.flipV } : {}),
     ...(typeof value.name === 'string' && value.name ? { name: str(value.name, '', 200) } : {}),
     ...(placeholder(value.placeholder) ? { placeholder: placeholder(value.placeholder) } : {})
   }

@@ -19,7 +19,7 @@ describe('openFormats and saveFormats', () => {
     expect(openFormats('docs', plain).map((format) => format.extension)).toEqual(['.md', '.markdown', '.txt'])
     expect(saveFormats('docs', plain).map((format) => format.extension)).toEqual(['.md', '.txt'])
     expect(openFormats('sheets', plain).map((format) => format.extension)).toEqual(['.csv'])
-    expect(openFormats('slides', plain)).toEqual([])
+    expect(openFormats('slides', plain).map((format) => format.extension)).toEqual(['.pptx'])
   })
 
   it('offers an OpenDocument format only with LibreOffice and a reader for the format it converts through', () => {

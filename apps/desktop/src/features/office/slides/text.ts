@@ -32,7 +32,7 @@ export function textBody(style: BodyStyle, options: { anchor?: Anchor; fit?: Aut
     paragraphs: lines.map((line) => ({ ...options.paragraph, runs: [{ text: line }] })),
     style,
     anchor: options.anchor ?? 'top',
-    inset: options.inset ?? DEFAULT_INSET,
+    inset: [...(options.inset ?? DEFAULT_INSET)],
     fit: options.fit ?? 'none',
     wrap: true
   }

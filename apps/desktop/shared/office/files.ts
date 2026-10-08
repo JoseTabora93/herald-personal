@@ -34,7 +34,7 @@ export const OFFICE_FORMATS: readonly OfficeFormat[] = [
   { extension: '.xlsx', app: 'sheets', label: 'Excel workbook', kind: 'office', opens: false, saves: false },
   { extension: '.csv', app: 'sheets', label: 'CSV', kind: 'text', opens: true, saves: true },
   { extension: '.ods', app: 'sheets', label: 'OpenDocument spreadsheet', kind: 'converted', opens: true, saves: true, via: '.xlsx' },
-  { extension: '.pptx', app: 'slides', label: 'PowerPoint presentation', kind: 'office', opens: false, saves: false },
+  { extension: '.pptx', app: 'slides', label: 'PowerPoint presentation', kind: 'office', opens: true, saves: true },
   { extension: '.odp', app: 'slides', label: 'OpenDocument presentation', kind: 'converted', opens: true, saves: true, via: '.pptx' }
 ]
 

@@ -35,13 +35,8 @@ export const requestEditStart = (request: EditStart | null): void => {
   start = request
 }
 
-/** The start asked for an element, once. */
-export function takeEditStart(elementId: string): EditStart | null {
-  const found = start?.elementId === elementId ? start : null
-  start = null
-
-  return found
-}
+/** The start asked for an element; it stands until another is asked for, since a view may mount twice. */
+export const editStartFor = (elementId: string): EditStart | null => (start?.elementId === elementId ? start : null)
 
 /** The text session of a document, when it is the one being edited. */
 export function textSessionOf(doc: SlidesDocument | undefined): TextSession | null {

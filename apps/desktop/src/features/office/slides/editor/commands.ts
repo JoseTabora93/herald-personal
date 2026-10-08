@@ -86,8 +86,6 @@ export function present(fromStart: boolean): void {
   }
 }
 
-// --- Slides --------------------------------------------------------------------------------------
-
 export const newSlide = (layout: LayoutId = 'title-content') => change((deck, doc) => model.addSlide(deck, { layout, after: doc.slideId }))
 
 export const duplicateSlides = () => change((deck, doc) => model.duplicateSlides(deck, doc.pickedSlides))
@@ -123,8 +121,6 @@ export const setBackground = (background: Background | null, all = false) => cha
 export const setSlideSize = (size: SlideSize) => change((deck) => model.setSize(deck, size))
 
 export const setTransition = (transition: Transition) => change((deck) => model.setTransition(deck, transition))
-
-// --- Elements ------------------------------------------------------------------------------------
 
 /** A new text box in the middle of the slide, ready to type into. */
 export function insertText(): void {
@@ -296,8 +292,6 @@ export const setShapeKind = (shape: ShapeKind) => changeSelected('Change Shape',
 export const resetCrop = () => changeSelected('Reset Crop', (element) => (element.kind === 'image' ? { ...element, crop: undefined } : element))
 
 export const setAlt = (alt: string) => changeSelected('Description', (element) => (element.kind === 'image' ? { ...element, alt } : element))
-
-// --- Text ----------------------------------------------------------------------------------------
 
 export type Switch = 'bold' | 'italic' | 'underline' | 'strike'
 
@@ -502,8 +496,6 @@ export function currentFormat(doc = live()): Format {
 
 /** Whether text formatting has anything to work on. */
 export const canFormatText = (doc = live()): boolean => Boolean($textSession.get()?.doc === doc && doc) || Boolean(doc && textTargets(doc).length)
-
-// --- Clipboard -----------------------------------------------------------------------------------
 
 const CLIPBOARD_TYPE = 'application/x-herald-slides'
 

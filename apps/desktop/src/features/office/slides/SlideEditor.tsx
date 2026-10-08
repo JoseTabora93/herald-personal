@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { matches } from '../../../lib/shortcuts.ts'
 import { Menu, type MenuItemDef } from '../../files/Menu.tsx'
 import type { EditorHandle, OfficeDocument } from '../types.ts'
 import type { Deck } from './deck.ts'
@@ -7,7 +8,7 @@ import { describeElement } from './elements.ts'
 import { flushTyping, textSessionOf } from './editor/active.ts'
 import * as commands from './editor/commands.ts'
 import { Rail } from './editor/Rail.tsx'
-import { Stage, stageScales, useDeck } from './editor/Stage.tsx'
+import { isTyping, Stage, stageScales, useDeck } from './editor/Stage.tsx'
 import { isEmptyPlaceholder } from './layouts.ts'
 import { ALIGN_LABELS, type AlignEdge, ARRANGE_LABELS, setNotes, slideTitle } from './model.ts'
 import { decks, slidesSession } from './store.ts'
@@ -137,7 +138,24 @@ export function SlideEditor({ doc: officeDoc }: { doc: OfficeDocument<Deck> }) {
   }, [officeDoc.key])
 
   return (
-    <div className="flex min-h-0 min-w-0 flex-1">
+    <div
+      className="flex min-h-0 min-w-0 flex-1"
+      onKeyDown={(event) => {
+        // Typing keeps its own undo; everywhere else in the deck ⌘Z steps through the deck's.
+        if (isTyping(event.target) || !(matches(event, 'mod+z') || matches(event, 'mod+shift+z'))) {
+          return
+        }
+
+        if (event.shiftKey) {
+          doc.redo()
+        } else {
+          doc.undo()
+        }
+
+        event.preventDefault()
+        event.stopPropagation()
+      }}
+    >
       <Rail doc={doc} />
       <div className="relative flex min-w-0 flex-1 flex-col">
         <Stage doc={doc} onContextMenu={setMenu} />

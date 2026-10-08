@@ -4,9 +4,9 @@ import { useLayoutEffect, useRef } from 'react'
 import type { Deck, SlideElement, TextBody, Theme } from '../deck.ts'
 import { findElement, findSlide, withElements } from '../deck.ts'
 import type { SlidesDocument } from '../document.ts'
-import { fitText } from '../view/SlideView.tsx'
+import { fitText } from '../view/fit.ts'
 import { flowCss, styleText } from '../view/text-style.ts'
-import { $textRevision, $textSession, takeEditStart, type TextSession } from './active.ts'
+import { $textRevision, $textSession, editStartFor, requestEditStart, type TextSession } from './active.ts'
 import { bodyToDoc, paragraphsFromDoc, sameParagraphs } from './rich-text.ts'
 import { slideTextExtensions } from './tiptap.ts'
 
@@ -78,7 +78,7 @@ export function TextEditor({ doc, slideId, elementId, body, theme }: { doc: Slid
       return
     }
 
-    const start = takeEditStart(elementId)
+    const start = editStartFor(elementId)
     const content = bodyToDoc(body)
     let baseline = paragraphsFromDoc(content, body)
     let done = false
@@ -162,6 +162,7 @@ export function TextEditor({ doc, slideId, elementId, body, theme }: { doc: Slid
 
         done = true
         record()
+        requestEditStart(null)
 
         if (doc.editing === elementId) {
           doc.edit(null)
@@ -195,8 +196,13 @@ export function TextEditor({ doc, slideId, elementId, body, theme }: { doc: Slid
 
     editor.commands.focus(undefined, { scrollIntoView: false })
 
+    // Unmounting keeps what was typed but leaves the document's editing state to whoever changed it
+    // (React mounts views twice in development, and the second view carries on).
     return () => {
-      session.finish()
+      if (!done) {
+        done = true
+        record()
+      }
 
       if ($textSession.get() === session) {
         $textSession.set(null)
