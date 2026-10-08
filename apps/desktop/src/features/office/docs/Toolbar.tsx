@@ -264,10 +264,15 @@ const MARKS = [
   { id: 'subscript', label: 'Subscript', keys: 'mod+,', icon: <IconSubscript /> }
 ] as const
 
-/** Herald Docs' formatting bar for the document in front. */
+/** Herald Docs' formatting bar for the document in front, once its editor is there. */
 export function DocsToolbar({ docKey }: { docKey: string }) {
   const editor = useStore($editors)[docKey] ?? null
-  const state = useEditorState({ editor, selector: ({ editor: current }) => (current && !current.isDestroyed ? readState(current) : null) })
+
+  return editor ? <ToolbarFor key={editor.instanceId} editor={editor} /> : <div className="min-h-10 shrink-0 border-b border-line" />
+}
+
+function ToolbarFor({ editor }: { editor: Editor }) {
+  const state = useEditorState({ editor, selector: ({ editor: current }) => (current.isDestroyed ? null : readState(current)) })
   const picker = useRef<HTMLInputElement>(null)
   const off = !state
 
@@ -277,10 +282,10 @@ export function DocsToolbar({ docKey }: { docKey: string }) {
 
   return (
     <div className="flex min-h-10 shrink-0 flex-wrap items-center gap-0.5 border-b border-line px-2 py-1 text-[12px]" role="toolbar" aria-label="Formatting">
-      <ToolButton label="Undo" keys="mod+z" disabled={!state?.canUndo} onClick={() => editor?.chain().focus().undo().run()}>
+      <ToolButton label="Undo" keys="mod+z" disabled={!state?.canUndo} onClick={() => editor.chain().focus().undo().run()}>
         <IconArrowBackUp />
       </ToolButton>
-      <ToolButton label="Redo" keys="mod+shift+z" disabled={!state?.canRedo} onClick={() => editor?.chain().focus().redo().run()}>
+      <ToolButton label="Redo" keys="mod+shift+z" disabled={!state?.canRedo} onClick={() => editor.chain().focus().redo().run()}>
         <IconArrowForwardUp />
       </ToolButton>
       <Divider />
@@ -359,7 +364,7 @@ export function DocsToolbar({ docKey }: { docKey: string }) {
         disabled={off}
         label={<IconInfoCircle size={16} />}
         items={() => [
-          ...Object.entries(CALLOUT_LABELS).map(([kind, label]) => ({ id: kind, label, checked: Boolean(editor?.isActive('callout', { kind })), onSelect: () => act.callout(kind as keyof typeof CALLOUT_LABELS) })),
+          ...Object.entries(CALLOUT_LABELS).map(([kind, label]) => ({ id: kind, label, checked: editor.isActive('callout', { kind }), onSelect: () => act.callout(kind as keyof typeof CALLOUT_LABELS) })),
           ...(state?.callout ? [{ id: 'remove', label: 'Remove panel', dividerBefore: true, onSelect: act.removeCallout }] : [])
         ]}
       />
@@ -367,7 +372,7 @@ export function DocsToolbar({ docKey }: { docKey: string }) {
       <ToolButton label="Clear formatting" keys="mod+\" disabled={off} onClick={act.clear}>
         <IconClearFormatting />
       </ToolButton>
-      {state?.table && editor && (
+      {state?.table && (
         <>
           <Divider />
           <Dropdown title="Table" label="Table" items={() => tableMenu(editor)} />

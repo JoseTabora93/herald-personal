@@ -3,7 +3,7 @@ import type { Editor } from '@tiptap/core'
 import type { Node as PMNode } from '@tiptap/pm/model'
 import { EditorState } from '@tiptap/pm/state'
 import { useEditorState } from '@tiptap/react'
-import { type MouseEvent, useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, type MouseEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { contentCss, looksCss } from '../../../../shared/office/doc-html.ts'
 import { countWords, type DocJSON, pageOf } from '../../../../shared/office/document.ts'
 import type { EditorHandle, OfficeDocument } from '../types.ts'
@@ -64,6 +64,8 @@ export function DocsEditor({ doc, active }: { doc: OfficeDocument<DocJSON>; acti
       load: (model) => {
         // A new state: the version on disk, with history starting again from it.
         instance.view.updateState(EditorState.create({ doc: instance.schema.nodeFromJSON(model), plugins: instance.state.plugins }))
+        // An empty step, so what reads the editor (the toolbar, the page size) reads it again.
+        instance.view.dispatch(instance.state.tr.setMeta('addToHistory', false))
         docsSession.refresh(doc)
       },
       undo: () => instance.commands.undo(),
@@ -150,7 +152,7 @@ export function DocsEditor({ doc, active }: { doc: OfficeDocument<DocJSON>; acti
 
   return (
     <div ref={frame} className="docs-frame relative flex min-h-0 min-w-0 flex-1 flex-col">
-      {editor && find?.key === doc.key && <FindBar editor={editor} replace={find.replace} at={find.at} onClose={() => $find.set(null)} />}
+      {editor && find?.key === doc.key && <FindBar key={editor.instanceId} editor={editor} replace={find.replace} at={find.at} onClose={() => $find.set(null)} />}
       <div
         ref={desk}
         className="docs-desk min-h-0 flex-1 overflow-auto"
@@ -168,11 +170,11 @@ export function DocsEditor({ doc, active }: { doc: OfficeDocument<DocJSON>; acti
         </div>
       </div>
       {editor && active && (
-        <>
+        <Fragment key={editor.instanceId}>
           <BubbleBar editor={editor} frame={frame.current} tick={tick} />
           <LinkPopover editor={editor} docKey={doc.key} frame={frame.current} tick={tick} />
           <ImageBar editor={editor} frame={frame.current} tick={tick} />
-        </>
+        </Fragment>
       )}
       {active && <SlashMenu frame={frame.current} />}
     </div>
