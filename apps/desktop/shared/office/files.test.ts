@@ -16,8 +16,8 @@ describe('extensionOf and formatOf', () => {
 
 describe('openFormats and saveFormats', () => {
   it('offers only what Herald reads and writes', () => {
-    expect(openFormats('docs', plain).map((format) => format.extension)).toEqual(['.md', '.markdown', '.txt'])
-    expect(saveFormats('docs', plain).map((format) => format.extension)).toEqual(['.md', '.txt'])
+    expect(openFormats('docs', plain).map((format) => format.extension)).toEqual(['.docx', '.docm', '.md', '.markdown', '.txt'])
+    expect(saveFormats('docs', plain).map((format) => format.extension)).toEqual(['.docx', '.md', '.txt'])
     expect(openFormats('sheets', plain).map((format) => format.extension)).toEqual(['.csv'])
     expect(openFormats('slides', plain)).toEqual([])
   })
@@ -27,7 +27,7 @@ describe('openFormats and saveFormats', () => {
 
     expect(openFormats('docs', withLibreOffice)).not.toContain(odt)
     expect(odt.via).toBe('.docx')
-    expect(OFFICE_FORMATS.find((format) => format.extension === odt.via)?.opens).toBe(false)
+    expect(odt.opens).toBe(false)
   })
 })
 
@@ -35,7 +35,7 @@ describe('officeAppFor', () => {
   it('names the app that opens a file here', () => {
     expect(officeAppFor('/tmp/a.csv', plain)).toBe('sheets')
     expect(officeAppFor('/tmp/a.txt', plain)).toBe('docs')
-    expect(officeAppFor('/tmp/a.docx', plain)).toBeNull()
+    expect(officeAppFor('/tmp/a.docx', plain)).toBe('docs')
     expect(officeAppFor('/tmp/a.png', plain)).toBeNull()
   })
 })
@@ -51,7 +51,8 @@ describe('baseName', () => {
 describe('dialogFilters', () => {
   it('groups extensions by label and puts all of them first', () => {
     expect(dialogFilters(openFormats('docs', plain))).toEqual([
-      { name: 'All supported files', extensions: ['md', 'markdown', 'txt'] },
+      { name: 'All supported files', extensions: ['docx', 'docm', 'md', 'markdown', 'txt'] },
+      { name: 'Word document', extensions: ['docx', 'docm'] },
       { name: 'Markdown', extensions: ['md', 'markdown'] },
       { name: 'Plain text', extensions: ['txt'] }
     ])

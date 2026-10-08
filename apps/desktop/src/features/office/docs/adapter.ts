@@ -5,23 +5,39 @@ import { decodeText, encodeText } from '../print.ts'
 import type { OfficeAdapter } from '../types.ts'
 
 /*
- * Herald Docs' files: Markdown and plain text for now (Word documents come with the format
- * converters), and the print view main turns into a PDF.
+ * Herald Docs' files: Word documents (read by our own WordprocessingML mapper, written with the
+ * docx package, both loaded only when a Word file is opened or saved), Markdown and plain text, and
+ * the print view main turns into a PDF.
  */
 
 export const printHtml = (document: DocJSON, title: string): string => printView(document, title)
 
+const isWord = (extension: string): boolean => extension === '.docx' || extension === '.docm'
+
 export const docsAdapter: OfficeAdapter<DocJSON> = {
   app: 'docs',
-  defaultFormat: '.md',
+  defaultFormat: '.docx',
   blank: () => blankDocument(),
   read: async (bytes, extension) => {
+    if (isWord(extension)) {
+      const { documentFromDocx } = await import('../../../../shared/office/docx/read.ts')
+      const { doc, notes } = await documentFromDocx(bytes)
+
+      return { model: doc, notes }
+    }
+
     const { text, notes } = decodeText(bytes)
     const result = extension === '.txt' ? documentFromText(text) : documentFromMarkdown(text)
 
     return { model: result.document, notes: [...notes, ...result.notes], layout: result.layout }
   },
   write: async (model, extension, layout) => {
+    if (isWord(extension)) {
+      const { docxFromDocument } = await import('../../../../shared/office/docx/write.ts')
+
+      return docxFromDocument(model)
+    }
+
     const textLayout = (layout ?? {}) as Partial<TextLayout>
     const result = extension === '.txt' ? textFromDocument(model, textLayout) : markdownFromDocument(model, textLayout)
 
