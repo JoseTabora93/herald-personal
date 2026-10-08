@@ -28,6 +28,24 @@ export const UNIVER_BASE: BaseFont = { name: 'Arial', size: 11, color: null }
 
 const ERRORS = new Set(['#NULL!', '#DIV/0!', '#VALUE!', '#REF!', '#NAME?', '#NUM!', '#N/A', '#SPILL!', '#CALC!', '#GETTING_DATA'])
 
+/** Sheet names a file can hold: at most 31 characters, none of [ ] : * ? / \, no quote at either end, each its own. */
+export function excelSheetNames(names: string[]): string[] {
+  const taken = new Set<string>()
+
+  return names.map((name) => {
+    const clean = name.replace(/[[\]:*?/\\]/g, '-').replace(/^'+|'+$/g, '').trim() || 'Sheet'
+    let candidate = (clean.toLowerCase() === 'history' ? `${clean} 1` : clean).slice(0, 31)
+
+    for (let n = 2; taken.has(candidate.toLowerCase()); n++) {
+      candidate = `${clean.slice(0, 31 - ` (${n})`.length)} (${n})`
+    }
+
+    taken.add(candidate.toLowerCase())
+
+    return candidate
+  })
+}
+
 function baseFont(workbook: WorkbookSnapshot): BaseFont {
   const first = workbook.sheets[workbook.sheetOrder[0]]
   const style = (workbook.defaultStyle ?? first?.defaultStyle) as UStyle | string | undefined
@@ -151,7 +169,7 @@ function writeSheet(book: ExcelJS.Workbook, workbook: WorkbookSnapshot, sheet: S
   const view = xSplit || ySplit ? { state: 'frozen' as const, xSplit, ySplit, topLeftCell: cellName(Math.max(ySplit, freeze?.startRow ?? 0), Math.max(xSplit, freeze?.startColumn ?? 0)), ...common } : { state: 'normal' as const, ...common }
   const tabColor = argbOf(typeof sheet.tabColor === 'string' ? sheet.tabColor : null)
   const defaultRow = typeof sheet.defaultRowHeight === 'number' ? pixelsToPoints(sheet.defaultRowHeight) : 15
-  const ws = book.addWorksheet(sheet.name, {
+  const ws = book.addWorksheet(sheetNameById.get(sheet.id) ?? sheet.name, {
     state: sheet.hidden === 2 ? 'veryHidden' : sheet.hidden === 1 ? 'hidden' : 'visible',
     views: [view as Partial<ExcelJS.WorksheetView>],
     properties: { defaultRowHeight: defaultRow, ...(tabColor ? { tabColor: { argb: tabColor } } : {}) } as Partial<ExcelJS.WorksheetProperties>
@@ -428,7 +446,12 @@ export async function xlsxFromWorkbook(workbook: WorkbookSnapshot): Promise<Xlsx
     validations: readResource<Record<string, UValidation[]>>(workbook.resources, RESOURCES.validation) ?? {}
   }
   const order = workbook.sheetOrder.filter((id) => workbook.sheets[id])
-  const sheetNameById = new Map(order.map((id) => [id, workbook.sheets[id].name]))
+  const sheetNames = excelSheetNames(order.map((id) => String(workbook.sheets[id].name ?? '')))
+  const sheetNameById = new Map(order.map((id, index) => [id, sheetNames[index]]))
+
+  if (order.some((id, index) => workbook.sheets[id].name !== sheetNames[index])) {
+    losses.add('Sheet names Excel does not allow (more than 31 characters, or any of [ ] : * ? / \\) are shortened or changed.')
+  }
   const patches = order.map((id) => writeSheet(book, workbook, workbook.sheets[id], base, resources, losses, sheetNameById))
   const active = typeof workbook.activeSheetId === 'string' ? order.indexOf(workbook.activeSheetId) : -1
   book.views = [{ x: 0, y: 0, width: 28800, height: 17600, firstSheet: 0, activeTab: Math.max(0, active), visibility: 'visible' }]

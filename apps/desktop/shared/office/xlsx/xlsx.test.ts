@@ -5,7 +5,7 @@ import { CELL_TYPE, newSheet, newWorkbook, type WorkbookSnapshot } from '../work
 import { featureWorkbook, handmadePackage, normalized } from './fixtures.ts'
 import { workbookFromXlsx } from './read.ts'
 import { readResource, RESOURCES } from './rules.ts'
-import { xlsxFromWorkbook } from './write.ts'
+import { excelSheetNames, xlsxFromWorkbook } from './write.ts'
 
 type Json = Record<string, unknown>
 
@@ -165,6 +165,17 @@ describe('xlsx round trips', () => {
 })
 
 describe('xlsx export', () => {
+  it('gives sheets names a file can hold, and says so', async () => {
+    const long = 'A very long sheet name that goes past the limit'
+    const workbook = newWorkbook('names', 'Names', [newSheet('a', 'Q1/Q2 [draft]'), newSheet('b', long), newSheet('c', `${long} too`), newSheet('d', 'History')])
+    const { bytes, losses } = await xlsxFromWorkbook(workbook)
+    const back = await workbookFromXlsx(bytes, { id: 'names', name: 'Names' })
+
+    expect(excelSheetNames(['Fine', 'fine'])).toEqual(['Fine', 'fine (2)'])
+    expect(back.workbook.sheetOrder.map((id) => back.workbook.sheets[id].name)).toEqual(['Q1-Q2 -draft-', 'A very long sheet name that goe', 'A very long sheet name that (2)', 'History 1'])
+    expect(losses).toEqual(['Sheet names Excel does not allow (more than 31 characters, or any of [ ] : * ? / \\) are shortened or changed.'])
+  })
+
   it('writes what ExcelJS cannot: the Normal font, validation, links, defined names and filter conditions', async () => {
     const { written } = await roundTrip(await featureWorkbook())
     const sheet = await partOf(written.bytes, 'xl/worksheets/sheet1.xml')
