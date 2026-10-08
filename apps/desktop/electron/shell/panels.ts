@@ -268,7 +268,8 @@ export class PanelShell implements ShellHost {
         sandbox: true,
         nodeIntegration: false,
         webSecurity: true,
-        spellcheck: false,
+        // On only where a page asks for it: index.html turns it off for everything else.
+        spellcheck: true,
         offscreen: options.offscreen ?? false,
         additionalArguments: [`--hermes-surface=${surface}`, `--hermes-shell-mode=${shellMode()}`]
       }

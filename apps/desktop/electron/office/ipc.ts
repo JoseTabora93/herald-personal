@@ -11,6 +11,7 @@ import { heraldOsDataDir } from '../paths.ts'
 import { OfficeBackups } from './backups.ts'
 import { convertWithLibreOffice, findSoffice } from './convert.ts'
 import { digestOfBytes, FileWatcher, stampOf } from './file-watch.ts'
+import { registerSpellingMenus } from './spelling.ts'
 
 /** The largest Office file Herald opens or writes. */
 const MAX_OFFICE_BYTES = 512 * 1024 * 1024
@@ -82,6 +83,7 @@ async function printToPdf(request: OfficePdfRequest): Promise<Uint8Array> {
 
 export function registerOfficeIpc(getWindow: () => BrowserWindow | null): void {
   const backups = new OfficeBackups(path.join(heraldOsDataDir(), 'office-backups'))
+  registerSpellingMenus()
 
   ipcMain.handle(IPC.officeAbilities, () => abilities())
 

@@ -45,7 +45,8 @@ export function createMainWindow(prefs: HeraldOSPrefs): BrowserWindow {
       sandbox: true,
       nodeIntegration: false,
       webSecurity: true,
-      spellcheck: false
+      // On only where a page asks for it: index.html turns it off for everything else.
+      spellcheck: true
     }
   })
 
