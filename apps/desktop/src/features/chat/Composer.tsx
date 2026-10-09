@@ -17,6 +17,8 @@ export interface ComposerProps {
 
 export function Composer({ disabled, streaming, placeholder, autoFocus, onSubmit, onInterrupt, className }: ComposerProps) {
   const [value, setValue] = useState('')
+  const [sendError, setSendError] = useState<string | null>(null)
+  const sending = useRef(false)
   const [selected, setSelected] = useState(0)
   const textarea = useRef<HTMLTextAreaElement>(null)
   const catalog = useSlashCatalog()
@@ -41,16 +43,23 @@ export function Composer({ disabled, streaming, placeholder, autoFocus, onSubmit
   const submit = async () => {
     const text = value.trim()
 
-    if (!text || disabled) {
+    if (!text || disabled || sending.current || streaming) {
       return
     }
 
-    setValue('')
-    await onSubmit(text)
+    sending.current = true
+    setSendError(null)
+    try {
+      await onSubmit(text)
+      setValue(current => current.trim() === text ? '' : current)
+    } catch (error) {
+      setSendError(error instanceof Error ? error.message : String(error))
+    } finally { sending.current = false }
   }
 
   return (
     <div className={cn('relative', className)}>
+      {sendError && <p role="alert" className="mb-2 text-[12px] text-danger">{sendError}</p>}
       {completions.length > 0 && (
         <div className="float absolute bottom-full left-0 mb-2 w-full max-w-md overflow-hidden rounded-md">
           {completions.map((entry, index) => (
@@ -102,7 +111,7 @@ export function Composer({ disabled, streaming, placeholder, autoFocus, onSubmit
               }
             }
 
-            if (event.key === 'Enter' && !event.shiftKey) {
+            if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
               event.preventDefault()
 
               if (completions.length > 0 && slashQuery !== null && completions[selected].name.toLowerCase() !== slashQuery) {

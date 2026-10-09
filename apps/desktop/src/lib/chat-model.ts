@@ -312,7 +312,7 @@ export function reduceChatEvent(state: ChatState, event: GatewayEvent): ChatStat
     case 'session.info': {
       const info = (event.payload ?? {}) as SessionLiveInfo
 
-      return { ...state, info: { ...state.info, ...info }, title: info.title ?? state.title, usage: info.usage ?? state.usage }
+      return { ...state, storedSessionId: info.stored_session_id ?? state.storedSessionId, info: { ...state.info, ...info }, title: info.title ?? state.title, usage: info.usage ?? state.usage }
     }
     case 'session.usage': {
       const payload = event.payload as { usage: Usage } | undefined

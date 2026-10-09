@@ -3,7 +3,7 @@ import { HERMES_APPS, type HermesAppId, PAGES, type PageId } from '../shell/apps
 import { composePrompt } from '../shell/surfaces/shell-utils.ts'
 import { runHeraldOsWithToast } from '../lib/herald-os-cli.ts'
 import { updatePrefs } from './backend.ts'
-import { openStoredSession, runSlash, sendPrompt } from './chat.ts'
+import { openStoredSession, reportChatError, runSlash, sendPromptInBackground } from './chat.ts'
 import { offerCrashHelp } from './crashes.ts'
 import { openEmojiPicker } from './emoji.ts'
 import { $notificationsOpen, notify } from './notifications.ts'
@@ -63,9 +63,9 @@ export function handleShellCommand(command: ShellCommand): void {
 
       // A bare slash command from the palette runs as one; anything with context or files is a prompt.
       if (text.startsWith('/') && !command.context && !command.attachments?.length) {
-        void runSlash(text)
+        void runSlash(text).catch(reportChatError)
       } else {
-        void sendPrompt(text)
+        void sendPromptInBackground(text)
       }
 
       return
@@ -75,7 +75,7 @@ export function handleShellCommand(command: ShellCommand): void {
 
       if (id) {
         showPage('hermes')
-        void openStoredSession(id)
+        void openStoredSession(id).catch(reportChatError)
       }
 
       return

@@ -178,12 +178,12 @@ export function dayLabel(ts: number): string {
   const diff = Math.round((startOf(today) - startOf(date)) / 86_400_000)
 
   if (diff === 0) {
-    return 'Today'
+    return 'Hoy'
   }
 
   if (diff === 1) {
-    return 'Yesterday'
+    return 'Ayer'
   }
 
-  return date.toLocaleDateString(undefined, diff < 7 ? { weekday: 'long' } : { month: 'long', day: 'numeric', year: date.getFullYear() === today.getFullYear() ? undefined : 'numeric' })
+  return date.toLocaleDateString('es-HN', diff < 7 ? { weekday: 'long' } : { month: 'long', day: 'numeric', year: date.getFullYear() === today.getFullYear() ? undefined : 'numeric' })
 }

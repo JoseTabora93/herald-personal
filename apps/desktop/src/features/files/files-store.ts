@@ -5,7 +5,7 @@ import type { DirEntry, RecentFile } from '../../../shared/ipc.ts'
 import { formatBytes } from '../../lib/format.ts'
 import { type AsyncState, useLocalData } from '../../lib/use-async.ts'
 import { $prefs, updatePrefs } from '../../store/backend.ts'
-import { sendPrompt } from '../../store/chat.ts'
+import { sendPromptInBackground } from '../../store/chat.ts'
 import { notify } from '../../store/notifications.ts'
 import { fileManagerName } from '../../lib/platform-labels.ts'
 import { $activeSpace } from '../../store/spaces.ts'
@@ -353,12 +353,12 @@ export function looksLikeNaturalLanguage(query: string): boolean {
 
 export function askHermesToFind(query: string): void {
   showPage('hermes')
-  void sendPrompt(`Find files: ${query}. Use system_find_files and list the paths.`)
+  void sendPromptInBackground(`Find files: ${query}. Use system_find_files and list the paths.`)
 }
 
 export function askHermesAbout(path: string): void {
   showPage('hermes')
-  void sendPrompt(`Take a look at ${path} and tell me what it is and what I might do with it.`)
+  void sendPromptInBackground(`Take a look at ${path} and tell me what it is and what I might do with it.`)
 }
 
 // ---- Descriptions ----------------------------------------------------------------------------

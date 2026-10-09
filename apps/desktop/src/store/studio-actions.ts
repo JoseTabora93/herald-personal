@@ -1,6 +1,6 @@
 import { buildBrief, projectSlug, uniqueName } from '../lib/build-brief.ts'
 import { $env, $prefs } from './backend.ts'
-import { createChat, sendPrompt } from './chat.ts'
+import { createChat, sendPromptInBackground } from './chat.ts'
 import { markBuildSession, openStudio } from './studio.ts'
 
 const TITLE_MAX = 60
@@ -37,7 +37,7 @@ export async function startBuild(goal: string): Promise<{ sessionId: string; fol
   const chat = await createChat({ cwd: folder, title })
   markBuildSession(chat.sessionId)
   openStudio(chat.sessionId, title)
-  void sendPrompt(buildBrief(trimmed, folder), { sessionId: chat.sessionId })
+  void sendPromptInBackground(buildBrief(trimmed, folder), { sessionId: chat.sessionId })
 
   return { sessionId: chat.sessionId, folder, title }
 }

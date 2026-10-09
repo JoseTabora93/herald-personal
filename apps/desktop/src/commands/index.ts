@@ -8,6 +8,7 @@ import { controlCommands } from './controls.ts'
 import { crashCommands } from './crash.ts'
 import { editCommands } from './edit.ts'
 import { filesCommands } from './files.ts'
+import { chatHistoryCommands } from './chat-history.ts'
 import { hermesCommands } from './hermes.ts'
 import { memoryCommands } from './memory.ts'
 import { navigationCommands } from './navigation.ts'
@@ -30,6 +31,7 @@ export const commandGroups: Record<string, readonly OsCommand[]> = {
   navigation: navigationCommands,
   edit: editCommands,
   hermes: hermesCommands,
+  chatHistory: chatHistoryCommands,
   memory: memoryCommands,
   files: filesCommands,
   automations: automationCommands,

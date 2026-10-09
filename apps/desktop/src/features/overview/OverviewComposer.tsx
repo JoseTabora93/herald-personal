@@ -21,6 +21,8 @@ export interface OverviewComposerProps {
 
 export function OverviewComposer({ disabled, placeholder, onSubmit, className, draft }: OverviewComposerProps) {
   const [value, setValue] = useState('')
+  const [sendError, setSendError] = useState<string | null>(null)
+  const sending = useRef(false)
   const [selected, setSelected] = useState(0)
   const [picking, setPicking] = useState(false)
   const textarea = useRef<HTMLTextAreaElement>(null)
@@ -62,12 +64,18 @@ export function OverviewComposer({ disabled, placeholder, onSubmit, className, d
   const submit = async () => {
     const text = value.trim()
 
-    if (!text || disabled) {
+    if (!text || disabled || sending.current) {
       return
     }
 
-    setValue('')
-    await onSubmit(text)
+    sending.current = true
+    setSendError(null)
+    try {
+      await onSubmit(text)
+      setValue(current => current.trim() === text ? '' : current)
+    } catch (error) {
+      setSendError(error instanceof Error ? error.message : String(error))
+    } finally { sending.current = false }
   }
 
   const attach = async () => {
@@ -93,6 +101,7 @@ export function OverviewComposer({ disabled, placeholder, onSubmit, className, d
 
   return (
     <div className={cn('relative', className)}>
+      {sendError && <p role="alert" className="mb-2 text-[12px] text-danger">{sendError}</p>}
       {completions.length > 0 && (
         <div className="float animate-rise absolute bottom-full left-0 mb-2 w-full max-w-md overflow-hidden rounded-lg">
           {completions.map((entry, index) => (
@@ -144,7 +153,7 @@ export function OverviewComposer({ disabled, placeholder, onSubmit, className, d
               }
             }
 
-            if (event.key === 'Enter' && !event.shiftKey) {
+            if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
               event.preventDefault()
 
               if (completions.length > 0 && slashQuery !== null && completions[selected].name.toLowerCase() !== slashQuery) {

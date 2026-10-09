@@ -7,7 +7,7 @@ import { Kbd } from '../components/ui/primitives.tsx'
 import { cn } from '../lib/cn.ts'
 import { shortcutLabel } from '../lib/platform-labels.ts'
 import { matchIntent } from '../lib/voice/intents.ts'
-import { openStoredSession, runSlash, sendPrompt } from '../store/chat.ts'
+import { reportChatError, openStoredSession, runSlash, sendPrompt } from '../store/chat.ts'
 import { useNativeApps } from '../store/native-apps.ts'
 import { notify } from '../store/notifications.ts'
 import { listCommands, runCommand } from '../store/os-commands.ts'
@@ -88,7 +88,7 @@ export function CommandPalette({ onClose, standalone = false, onApplications, cl
     }
 
     showPage('hermes')
-    void openStoredSession(id)
+    void openStoredSession(id).catch(reportChatError)
   }
 
   const applications = () => {
@@ -175,7 +175,7 @@ export function CommandPalette({ onClose, standalone = false, onApplications, cl
       <Command.List className="max-h-[420px] overflow-y-auto p-2 [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-[11px] [&_[cmdk-group-heading]]:tracking-[0.08em] [&_[cmdk-group-heading]]:text-fg-3 [&_[cmdk-group-heading]]:uppercase">
         {trimmed && (
           <Command.Group heading="Hermes">
-            <Item value={`ask:${trimmed}`} onSelect={() => void ask(trimmed)} icon={<IconMessage size={15} />} hint="↵">
+            <Item value={`ask:${trimmed}`} onSelect={() => void ask(trimmed).catch(reportChatError)} icon={<IconMessage size={15} />} hint="↵">
               {isSlash ? `Run ${trimmed}` : `Ask Hermes: “${trimmed}”`}
             </Item>
           </Command.Group>
@@ -201,7 +201,7 @@ export function CommandPalette({ onClose, standalone = false, onApplications, cl
         {isSlash && filteredSlash.length > 0 && (
           <Command.Group heading="Commands">
             {filteredSlash.map(entry => (
-              <Item key={entry.name} value={`slash:${entry.name}`} onSelect={() => void ask(`/${entry.name}`)} icon={<IconSlash size={15} />} hint={entry.description}>
+              <Item key={entry.name} value={`slash:${entry.name}`} onSelect={() => void ask(`/${entry.name}`).catch(reportChatError)} icon={<IconSlash size={15} />} hint={entry.description}>
                 /{entry.name}
               </Item>
             ))}

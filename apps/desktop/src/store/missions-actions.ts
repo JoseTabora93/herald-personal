@@ -1,4 +1,4 @@
-import { createChat, sendPrompt } from './chat.ts'
+import { createChat, sendPromptInBackground } from './chat.ts'
 import { showPage } from './windows.ts'
 
 const TITLE_MAX = 60
@@ -18,7 +18,7 @@ export async function startMission(goal: string): Promise<{ sessionId: string; t
 
   const title = trimmed.slice(0, TITLE_MAX)
   const chat = await createChat({ title })
-  void sendPrompt(missionPrompt(trimmed), { sessionId: chat.sessionId })
+  void sendPromptInBackground(missionPrompt(trimmed), { sessionId: chat.sessionId })
   showPage('hermes')
 
   return { sessionId: chat.sessionId, title }

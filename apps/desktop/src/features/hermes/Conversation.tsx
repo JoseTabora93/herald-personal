@@ -4,9 +4,11 @@ import { memo, useEffect, useMemo, useRef, useState } from 'react'
 import { HermesAvatar } from '../../components/app-icon.tsx'
 import { cn } from '../../lib/cn.ts'
 import type { AssistantMessage, ChatMessage, ChatState, SystemMessage, ToolMessage, UserMessage } from '../../lib/chat-model.ts'
-import { interruptChat, runSlash, sendPrompt } from '../../store/chat.ts'
+import { $chatDrafts, setChatDraft } from '../../store/chat-drafts.ts'
+import { createChat, interruptChat, runSlash, sendPrompt } from '../../store/chat.ts'
 import type { Artifact } from '../../store/missions.ts'
 import { $activeSpace } from '../../store/spaces.ts'
+import { runCommand } from '../../store/os-commands.ts'
 import { Markdown } from '../chat/Markdown.tsx'
 import { $chatArtifacts, $selectedArtifact, artifactsInWindow, dayLabel, formatTime, selectArtifact } from './artifact-store.ts'
 import { ArtifactCard } from './ArtifactCard.tsx'
@@ -14,7 +16,7 @@ import { HermesComposer } from './HermesComposer.tsx'
 import { SuggestionChips } from './SuggestionChips.tsx'
 import { ToolSummaryRow } from './ToolSummaryRow.tsx'
 
-const HERO_SUGGESTIONS = ["What's using the most CPU right now?", 'Find the screenshots I took yesterday', 'Draft a brief for my next product review', 'What is taking up my disk space?']
+const HERO_SUGGESTIONS = ['Ayúdame a preparar mi día', 'Resume mis compromisos pendientes', 'Revisemos el avance de mis agentes', 'Quiero registrar lo que hice hoy']
 
 /** A user prompt and everything Hermes did in response, up to the next prompt. */
 interface Turn {
@@ -70,8 +72,16 @@ function blocksOf(items: ChatMessage[]): Block[] {
 
 export function Conversation({ chat, online }: { chat: ChatState | null; online: boolean }) {
   const space = useStore($activeSpace)
-  const submit = async (text: string): Promise<void> => {
-    await (text.startsWith('/') ? runSlash(text) : sendPrompt(text))
+  const submit = async (text: string): Promise<string> => {
+    const target = chat ?? await createChat()
+    if (!chat) setChatDraft(target.storedSessionId, $chatDrafts.get().new?.text ?? text)
+    try {
+      await (text.startsWith('/') ? runSlash(text, target.sessionId) : sendPrompt(text, { sessionId: target.sessionId }))
+      return target.storedSessionId
+    } catch (error) {
+      setChatDraft(target.storedSessionId, $chatDrafts.get()[target.storedSessionId]?.text ?? text, error instanceof Error ? error.message : String(error))
+      throw error
+    }
   }
 
   return (
@@ -80,14 +90,14 @@ export function Conversation({ chat, online }: { chat: ChatState | null; online:
         <HermesAvatar size={36} rounded={10} />
         <div className="min-w-0">
           <div className="truncate text-[15px] leading-tight font-semibold text-fg">Hermes</div>
-          <div className="truncate text-[12px] text-fg-3">{chat?.title || `${space?.name ?? 'Personal'} workspace`}</div>
+          <div className="truncate text-[12px] text-fg-3">{chat?.title || `${space?.name ?? 'Personal'} · Nueva conversación`}</div>
         </div>
       </div>
 
-      {chat ? <Transcript chat={chat} online={online} /> : <Hero online={online} />}
+      {chat ? <Transcript key={chat.sessionId} chat={chat} online={online} /> : <Hero online={online} />}
 
       <div className="shrink-0 px-4 pb-4 pt-2">
-        <HermesComposer autoFocus disabled={!online} streaming={chat?.streaming} placeholder={online ? 'Ask Hermes anything…' : 'Connecting to Hermes…'} onSubmit={submit} onInterrupt={() => void interruptChat()} />
+        <HermesComposer draftKey={chat?.storedSessionId ?? 'new'} autoFocus disabled={!online} streaming={chat?.streaming} placeholder={online ? 'Continúa la conversación con Hermes…' : 'Esperando a Hermes…'} onSubmit={submit} onInterrupt={() => void interruptChat()} />
       </div>
     </div>
   )
@@ -99,11 +109,11 @@ function Hero({ online }: { online: boolean }) {
       <HermesAvatar size={48} rounded={14} />
       <div className="text-center">
         <div className="text-[20px] font-semibold tracking-tight text-fg">Hermes</div>
-        <div className="mt-1 text-[13px] text-fg-3">Your computer, in conversation.</div>
+        <div className="mt-1 text-[13px] text-fg-3">Retoma un chat del historial o empieza una conversación.</div>
       </div>
       <div className="stagger grid w-full max-w-md grid-cols-2 gap-2">
         {HERO_SUGGESTIONS.map(text => (
-          <button key={text} type="button" onClick={() => void sendPrompt(text)} disabled={!online} className="glass-card glass-card-hover rounded-xl px-3.5 py-3 text-left text-[12.5px] text-fg-2 hover:text-fg disabled:cursor-not-allowed disabled:opacity-40">
+          <button key={text} type="button" onClick={() => void runCommand('chat.send', { text }, { source: 'ui' })} disabled={!online} className="glass-card glass-card-hover rounded-xl px-3.5 py-3 text-left text-[12.5px] text-fg-2 hover:text-fg disabled:cursor-not-allowed disabled:opacity-40">
             {text}
           </button>
         ))}
@@ -151,7 +161,7 @@ function Transcript({ chat, online }: { chat: ChatState; online: boolean }) {
     <div ref={scroller} className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
       <div className="flex flex-col gap-3">
         {chat.hydrating && chat.messages.length === 0 && (
-          <div className="flex flex-col gap-3" aria-label="Loading conversation">
+          <div className="flex flex-col gap-3" aria-label="Cargando conversación">
             <div className="shimmer ml-auto h-12 w-3/5 rounded-xl" />
             <div className="shimmer h-16 w-4/5 rounded-xl" />
           </div>
@@ -172,14 +182,14 @@ function Transcript({ chat, online }: { chat: ChatState; online: boolean }) {
                 block.kind === 'tools' ? <ToolSummaryRow key={block.id} tools={block.tools} /> : block.message.role === 'assistant' ? <AssistantBubble key={block.id} message={block.message} /> : <SystemRow key={block.id} message={block.message} />
               )}
               {finished && produced.map(artifact => <ArtifactCard key={artifact.path} artifact={artifact} selected={selected?.path === artifact.path} onSelect={() => selectArtifact(artifact.path)} />)}
-              {isLast && lastComplete && <SuggestionChips hasArtifact={artifacts.some((a: Artifact) => a.kind === 'file')} disabled={!online} onPick={text => void sendPrompt(text)} />}
+              {isLast && lastComplete && <SuggestionChips hasArtifact={artifacts.some((a: Artifact) => a.kind === 'file')} disabled={!online} onPick={text => void runCommand('chat.send', { text }, { source: 'ui' })} />}
             </div>
           )
         })}
         {chat.streaming && (chat.status || !chat.openAssistantId) && (
           <div className="flex items-center gap-2 px-1 text-[12px] text-fg-3 animate-fade-in">
             <span className="size-1.5 rounded-full bg-accent animate-pulse-soft" />
-            {chat.status?.text ?? 'Thinking'}
+            {chat.status?.text ?? 'Pensando'}
           </div>
         )}
       </div>
@@ -222,7 +232,7 @@ const AssistantBubble = memo(function AssistantBubble({ message }: { message: As
         {hasReasoning && (
           <button type="button" onClick={() => setShowReasoning(v => !v)} className="mb-1 flex items-center gap-1 text-[11.5px] text-fg-3 hover:text-fg-2">
             <IconChevronRight size={12} className={cn('transition-transform duration-100', showReasoning && 'rotate-90')} />
-            {message.streaming && !text ? 'Thinking' : 'Reasoning'}
+            {message.streaming && !text ? 'Pensando' : 'Razonamiento'}
           </button>
         )}
         {hasReasoning && showReasoning && <div className="selectable mb-2 border-l border-line-strong pl-3 text-[12px] leading-relaxed whitespace-pre-wrap text-fg-3">{message.reasoning}</div>}
@@ -235,7 +245,7 @@ const AssistantBubble = memo(function AssistantBubble({ message }: { message: As
         ) : null}
         {message.error && <div className="mt-2 rounded-lg bg-danger/10 px-3 py-2 text-[12.5px] text-danger">{message.error}</div>}
         <div className="mt-1 flex items-center justify-end gap-2 text-[10.5px] tabular-nums text-fg-3">
-          {message.status === 'interrupted' && <span className="text-fg-4">Interrupted</span>}
+          {message.status === 'interrupted' && <span className="text-fg-4">Interrumpido</span>}
           {!message.streaming && <span>{formatTime(message.ts)}</span>}
         </div>
       </div>

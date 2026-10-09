@@ -3,7 +3,7 @@ import { $activeChat, createChat, interruptChat, openStoredSession, sendPrompt }
 import { $activeMissions, $completedMissions, $missions, $reviewMissions, focusMissions, markReviewed, type Mission } from '../store/missions.ts'
 import { startMission } from '../store/missions-actions.ts'
 import { fail, ok, type OsCommand } from '../store/os-commands.ts'
-import { $sessions, refreshSessions } from '../store/sessions.ts'
+import { $history, searchSessions } from '../store/sessions.ts'
 import { readToolSearch, setToolSearch } from '../store/tool-search.ts'
 import { openApp, showPage } from '../store/windows.ts'
 
@@ -54,12 +54,9 @@ export const hermesCommands: readonly OsCommand[] = [
     phrases: ['open the chat about {title}', 'open my {title} session', 'open the conversation about {title}'],
     run: async ({ title }) => {
       const needle = String(title).toLowerCase()
-      let rows = $sessions.get()
-
-      if (rows.length === 0) {
-        await refreshSessions()
-        rows = $sessions.get()
-      }
+      await searchSessions(String(title))
+      if ($history.get().error) return fail($history.get().error!)
+      const rows = $history.get().rows
 
       const matches = rows.filter(row => `${row.title ?? ''} ${row.preview ?? ''}`.toLowerCase().includes(needle))
 
@@ -67,7 +64,8 @@ export const hermesCommands: readonly OsCommand[] = [
         return fail(`No session mentions "${String(title)}".`)
       }
 
-      if (matches.length > 1 && !matches.some(row => (row.title ?? '').toLowerCase() === needle)) {
+      const exact = matches.filter(row => (row.title ?? '').toLowerCase() === needle)
+      if (exact.length > 1 || (matches.length > 1 && exact.length !== 1)) {
         return ambiguous(
           'session',
           matches.map(row => row.title || row.preview || row.id)
@@ -114,7 +112,7 @@ export const hermesCommands: readonly OsCommand[] = [
         return fail('No active session to pop out.')
       }
 
-      openApp('chat-popout', { payload: { sessionId: chat.sessionId }, title: chat.title || 'Hermes' })
+      openApp('chat-popout', { payload: { sessionId: chat.storedSessionId }, title: chat.title || 'Hermes' })
 
       return ok('Popped out the chat')
     }

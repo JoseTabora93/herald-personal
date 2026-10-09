@@ -3,7 +3,7 @@ import { IconExternalLink, IconMessage, IconPlayerStopFilled, IconSend } from '@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { StatusDot } from '../../components/ui/glass.tsx'
 import { cn } from '../../lib/cn.ts'
-import { $chats, interruptChat, openStoredSession, sendPrompt } from '../../store/chat.ts'
+import { $chats, interruptChat, openStoredSession, sendPromptInBackground } from '../../store/chat.ts'
 import { isPanels } from '../../store/shell.ts'
 import { $todos } from '../../store/missions.ts'
 import { $studios, focusStudioFile, studioFor, watchStudioFolder } from '../../store/studio.ts'
@@ -127,7 +127,7 @@ export function StudioWindow({ win }: { win: OSWindow }) {
 
     if (text) {
       setDraft('')
-      void sendPrompt(text, { sessionId })
+      void sendPromptInBackground(text, { sessionId })
     }
   }
 

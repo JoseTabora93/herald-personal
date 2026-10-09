@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { EmptyGlass, LinkAction, Section, StatusDot } from '../../components/ui/glass.tsx'
 import { cn } from '../../lib/cn.ts'
 import { greetingFor } from '../../lib/format.ts'
-import { createChat, runSlash, sendPrompt } from '../../store/chat.ts'
+import { reportChatError, createChat, runSlash, sendPrompt } from '../../store/chat.ts'
 import { $threads } from '../../store/continuity.ts'
 import { $connection } from '../../store/gateway.ts'
 import { $activeMissions, $reviewMissions } from '../../store/missions.ts'
@@ -71,8 +71,8 @@ export function OverviewPage() {
             </div>
             <OverviewComposer disabled={!online} placeholder={online ? 'What would you like to make happen?' : 'Starting Hermes…'} onSubmit={submit} draft={draft} />
             <div className="flex flex-wrap items-center gap-2">
-              <QuickAction icon={<IconSunHigh />} label="Plan my day" disabled={!online} onClick={() => void submit(PLAN_MY_DAY_PROMPT)} />
-              <QuickAction icon={<IconTargetArrow />} label="Start a mission" disabled={!online} onClick={() => void startMission()} />
+              <QuickAction icon={<IconSunHigh />} label="Plan my day" disabled={!online} onClick={() => void submit(PLAN_MY_DAY_PROMPT).catch(reportChatError)} />
+              <QuickAction icon={<IconTargetArrow />} label="Start a mission" disabled={!online} onClick={() => void startMission().catch(reportChatError)} />
               <QuickAction icon={<IconPalette />} label="Make a theme" disabled={!online} onClick={() => setDraft({ text: MAKE_THEME_DRAFT, id: Date.now() })} />
             </div>
           </div>

@@ -1,180 +1,69 @@
 import { useStore } from '@nanostores/react'
-import { IconArrowUpRight, IconHistory, IconPencil, IconPlus, IconTrash, IconX } from '@tabler/icons-react'
-import { useEffect, useRef, useState } from 'react'
+import { IconArrowUpRight, IconHistory, IconPencil, IconPlus, IconTrash, IconLayoutSidebarRight } from '@tabler/icons-react'
+import { useEffect, useState } from 'react'
 import { GlassButton, GlassCard, MoreButton } from '../../components/ui/glass.tsx'
-import { $activeChat, $activeChatId, $chats, createChat, forgetChat } from '../../store/chat.ts'
+import { $activeChat, $chatError, $chatOpening } from '../../store/chat.ts'
 import { $connection } from '../../store/gateway.ts'
-import { notify } from '../../store/notifications.ts'
-import { deleteSession } from '../../store/sessions.ts'
-import { openApp } from '../../store/windows.ts'
+import { runCommand } from '../../store/os-commands.ts'
+import { $chatResultsOpen, $historyOpen } from '../../store/sessions.ts'
 import { SessionList } from '../chat/SessionList.tsx'
 import { ArtifactPane } from './ArtifactPane.tsx'
 import { Conversation } from './Conversation.tsx'
 import { MenuDivider, MenuItem, PopMenu } from './Menu.tsx'
 
-/*
- * The Hermes page: a conversation on the left, what Hermes produced on the right. Chat state is
- * the shared store/chat.ts pipeline; this page only lays it out and adds the artifact pane.
- */
 export function HermesPage() {
   const chat = useStore($activeChat)
-  const activeId = useStore($activeChatId)
-  const connection = useStore($connection)
-  const online = connection === 'open'
+  const opening = useStore($chatOpening)
+  const chatError = useStore($chatError)
+  const online = useStore($connection) === 'open'
+  const historyOpen = useStore($historyOpen)
+  const resultsOpen = useStore($chatResultsOpen)
   const [menuOpen, setMenuOpen] = useState(false)
   const [renaming, setRenaming] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
-  const [sessionsOpen, setSessionsOpen] = useState(false)
   const [title, setTitle] = useState('')
   const [busy, setBusy] = useState(false)
-  const renameInput = useRef<HTMLInputElement>(null)
-
-  // Picking a session from the drawer closes it.
-  useEffect(() => {
-    setSessionsOpen(false)
-  }, [activeId])
-
-  useEffect(() => {
-    if (!menuOpen) {
-      setConfirmDelete(false)
-    }
-  }, [menuOpen])
-
-  const startRename = () => {
-    if (!chat) {
-      return
-    }
-
-    setTitle(chat.title || '')
-    setMenuOpen(false)
-    setRenaming(true)
-    requestAnimationFrame(() => renameInput.current?.select())
-  }
-
-  const commitRename = () => {
-    setRenaming(false)
-
-    if (!chat) {
-      return
-    }
-
-    const next = title.trim()
-    const current = $chats.get()[chat.sessionId]
-
-    if (current && next !== current.title) {
-      // Local only: the runtime keeps its own title until it renames the session itself.
-      $chats.setKey(chat.sessionId, { ...current, title: next, info: { ...current.info, title: next || undefined } })
-    }
-  }
-
-  const remove = async () => {
-    if (!chat) {
-      return
-    }
-
-    setBusy(true)
-
+  const [error, setError] = useState<string | null>(null)
+  useEffect(() => { setMenuOpen(false); setRenaming(false); setConfirmDelete(false); setError(null) }, [chat?.sessionId])
+  useEffect(() => { if (!menuOpen) setConfirmDelete(false) }, [menuOpen])
+  const run = async (command: string, args = {}) => {
+    setError(null); setBusy(true)
     try {
-      await deleteSession(chat.storedSessionId)
-      forgetChat(chat.sessionId)
-      notify({ title: 'Conversation deleted', body: chat.title || undefined, level: 'info', surface: 'hermes' })
-    } catch (error) {
-      notify({ title: 'Could not delete', body: error instanceof Error ? error.message : String(error), level: 'error', surface: 'hermes' })
-    } finally {
-      setBusy(false)
-      setMenuOpen(false)
-    }
+      const result = await runCommand(command, args, { source: 'ui' })
+      if (!result.ok) { setError(result.error || result.summary); return false }
+      return true
+    } finally { setBusy(false) }
   }
-
   return (
     <div className="page-enter relative flex h-full flex-col">
-      <div className="flex items-center justify-end gap-2 px-6 pt-5 pb-4">
-        {renaming && (
-          <input
-            ref={renameInput}
-            value={title}
-            autoFocus
-            aria-label="Conversation title"
-            placeholder="Conversation title"
-            onChange={event => setTitle(event.target.value)}
-            onBlur={commitRename}
-            onKeyDown={event => {
-              if (event.key === 'Enter') {
-                commitRename()
-              } else if (event.key === 'Escape') {
-                setRenaming(false)
-              }
-            }}
-            className="glass-input h-9 w-72 rounded-lg px-3 text-[13px] outline-none placeholder:text-fg-4 animate-pop"
-          />
-        )}
-        <GlassButton onClick={() => void createChat()} disabled={!online} aria-label="New conversation">
-          <IconPlus />
-          New conversation
-        </GlassButton>
-        <PopMenu open={menuOpen} onClose={() => setMenuOpen(false)} trigger={<MoreButton aria-label="Conversation actions" aria-haspopup="menu" aria-expanded={menuOpen} onClick={() => setMenuOpen(v => !v)} />}>
-          <MenuItem icon={<IconPencil />} disabled={!chat} onClick={startRename}>
-            Rename
-          </MenuItem>
-          <MenuItem
-            icon={<IconArrowUpRight />}
-            disabled={!chat}
-            onClick={() => {
-              setMenuOpen(false)
-
-              if (chat) {
-                openApp('chat-popout', { payload: { sessionId: chat.storedSessionId }, title: chat.title || 'Hermes' })
-              }
-            }}
-          >
-            Pop out
-          </MenuItem>
-          <MenuItem
-            icon={<IconHistory />}
-            onClick={() => {
-              setMenuOpen(false)
-              setSessionsOpen(v => !v)
-            }}
-          >
-            Sessions…
-          </MenuItem>
-          <MenuDivider />
-          {confirmDelete ? (
-            <MenuItem icon={<IconTrash />} danger disabled={busy} onClick={() => void remove()}>
-              {busy ? 'Deleting…' : 'Delete for good?'}
-            </MenuItem>
-          ) : (
-            <MenuItem icon={<IconTrash />} danger disabled={!chat} onClick={() => setConfirmDelete(true)}>
-              Delete
-            </MenuItem>
-          )}
-        </PopMenu>
-      </div>
-
-      <div className="flex min-h-0 flex-1 gap-4 px-6 pb-6">
-        <GlassCard className="flex min-w-[380px] basis-[45%] flex-col overflow-hidden">
-          <Conversation chat={chat} online={online} />
-        </GlassCard>
-        <GlassCard className="flex min-w-0 flex-1 flex-col overflow-hidden">
-          <ArtifactPane chat={chat} />
-        </GlassCard>
-      </div>
-
-      {sessionsOpen && (
-        <div className="absolute inset-0 z-10 flex" role="dialog" aria-label="Sessions">
-          <button type="button" aria-label="Close sessions" onClick={() => setSessionsOpen(false)} className="absolute inset-0 cursor-default bg-black/20" />
-          <div className="glass relative m-6 mr-0 flex w-[280px] flex-col overflow-hidden rounded-2xl animate-rise">
-            <div className="flex items-center justify-end px-2 pt-2">
-              <button type="button" aria-label="Close" onClick={() => setSessionsOpen(false)} className="flex size-7 items-center justify-center rounded-lg text-fg-3 hover:bg-white/8 hover:text-fg">
-                <IconX size={15} />
-              </button>
-            </div>
-            <div className="min-h-0 flex-1 [&>aside]:h-full [&>aside]:w-full [&>aside]:border-r-0">
-              <SessionList />
-            </div>
-          </div>
+      <div className="flex flex-wrap items-center justify-between gap-2 px-5 pt-4 pb-3">
+        <GlassButton aria-expanded={historyOpen} onClick={() => void run('chat.history.toggle')}><IconHistory />Historial</GlassButton>
+        <div className="flex items-center gap-2">
+          <GlassButton aria-expanded={resultsOpen} onClick={() => void run('chat.results.toggle')}><IconLayoutSidebarRight />Resultados</GlassButton>
+          <GlassButton onClick={() => void run('chat.new')} disabled={!online || busy || Boolean(opening)}><IconPlus />Nueva conversación</GlassButton>
+          <PopMenu open={menuOpen} onClose={() => setMenuOpen(false)} trigger={<MoreButton aria-label="Acciones de conversación" aria-haspopup="menu" aria-expanded={menuOpen} onClick={() => setMenuOpen(v => !v)} />}>
+            <MenuItem icon={<IconPencil />} disabled={!chat || Boolean(opening)} onClick={() => { setTitle(chat?.title || ''); setMenuOpen(false); setRenaming(true) }}>Renombrar</MenuItem>
+            <MenuItem icon={<IconArrowUpRight />} disabled={!chat} onClick={() => { setMenuOpen(false); void run('chat.popout') }}>Abrir en otra ventana</MenuItem>
+            <MenuDivider />
+            <MenuItem icon={<IconTrash />} danger disabled={!chat || busy || chat.streaming || Boolean(opening)} onClick={() => {
+              if (!confirmDelete) { setConfirmDelete(true); return }
+              void run('chat.delete', { id: chat?.storedSessionId, confirmed: true }).then(() => setMenuOpen(false))
+            }}>{confirmDelete ? 'Confirmar eliminación permanente' : 'Eliminar conversación'}</MenuItem>
+          </PopMenu>
         </div>
-      )}
+      </div>
+      {renaming && <form className="flex gap-2 px-5 pb-3" onSubmit={event => { event.preventDefault(); void run('chat.rename', { title }).then(saved => { if (saved) setRenaming(false) }) }}>
+        <input autoFocus aria-label="Título de conversación" value={title} onChange={event => setTitle(event.target.value)} className="glass-input min-w-0 flex-1 rounded-lg px-3 py-2 text-[13px]" />
+        <GlassButton type="submit" disabled={busy || !title.trim()}>Guardar título</GlassButton>
+        <GlassButton type="button" onClick={() => setRenaming(false)}>Cancelar</GlassButton>
+      </form>}
+      {(error || chatError) && <p role="alert" className="mx-5 mb-3 rounded-lg bg-danger/10 p-3 text-[13px] text-danger">{error || chatError}</p>}
+      {opening && <p role="status" className="px-5 pb-2 text-[12px] text-fg-3">Abriendo conversación…</p>}
+      <div className="flex min-h-0 flex-1 gap-3 px-5 pb-5">
+        {historyOpen && <GlassCard className="flex w-64 shrink-0 flex-col overflow-hidden [&>aside]:w-full [&>aside]:border-r-0"><SessionList /></GlassCard>}
+        <GlassCard className="flex min-w-0 flex-1 flex-col overflow-hidden"><Conversation chat={chat} online={online && !opening} /></GlassCard>
+        {resultsOpen && <GlassCard className="flex w-[35%] min-w-0 flex-col overflow-hidden"><ArtifactPane chat={chat} /></GlassCard>}
+      </div>
     </div>
   )
 }

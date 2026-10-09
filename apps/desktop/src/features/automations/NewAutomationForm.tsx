@@ -2,7 +2,7 @@ import { IconMessageChatbot, IconPlus, IconSparkles, IconX } from '@tabler/icons
 import { useState } from 'react'
 import { HERALD_EVENTS, type HeraldEventName } from '../../../shared/events.ts'
 import { Chips, GlassButton, GlassCard } from '../../components/ui/glass.tsx'
-import { sendPrompt } from '../../store/chat.ts'
+import { sendPromptInBackground } from '../../store/chat.ts'
 import { showPage } from '../../store/windows.ts'
 import type { CronJobDraft, DeliveryTarget } from './api.ts'
 import { SCHEDULE_FORMATS_HINT, SCHEDULE_PLACEHOLDER, humanizeCronExpr } from './cron-humanize.ts'
@@ -133,7 +133,7 @@ export function NewAutomationForm({ targets, creating, onCreate, onCancel }: { t
           variant="secondary"
           onClick={() => {
             showPage('hermes')
-            void sendPrompt(DESCRIBE_PROMPT)
+            void sendPromptInBackground(DESCRIBE_PROMPT)
           }}
         >
           <IconMessageChatbot />

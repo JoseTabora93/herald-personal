@@ -6,7 +6,7 @@ import { ChatSurface } from '../chat/ChatSurface.tsx'
 export function ChatPopout({ sessionId }: { sessionId?: string }) {
   useEffect(() => {
     if (sessionId) {
-      void openStoredSession(sessionId)
+      void openStoredSession(sessionId).catch(() => { /* The shared chat error is rendered by ChatSurface. */ })
     }
   }, [sessionId])
 

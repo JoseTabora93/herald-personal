@@ -6,7 +6,7 @@ import { MicButton } from '../voice/MicButton.tsx'
 import { Kbd } from '../../components/ui/primitives.tsx'
 import { cn } from '../../lib/cn.ts'
 import { shortcutLabel } from '../../lib/platform-labels.ts'
-import { sendPrompt } from '../../store/chat.ts'
+import { sendPromptInBackground } from '../../store/chat.ts'
 import { useNativeApps } from '../../store/native-apps.ts'
 import { notify } from '../../store/notifications.ts'
 import { openSurface, relayToMain } from '../../store/shell.ts'
@@ -85,7 +85,7 @@ export function ApplicationsPanel({ onClose, standalone = false, className }: Ap
       }
 
       showPage('hermes')
-      void sendPrompt(`${prompt}${HERMES_SUFFIX}`)
+      void sendPromptInBackground(`${prompt}${HERMES_SUFFIX}`)
     },
     [close, standalone]
   )

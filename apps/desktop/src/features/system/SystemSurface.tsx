@@ -8,7 +8,7 @@ import { cn } from '../../lib/cn.ts'
 import { formatBytes, formatDuration, formatPercent } from '../../lib/format.ts'
 import { rest } from '../../lib/rest.ts'
 import { useBackendData } from '../../lib/use-async.ts'
-import { sendPrompt } from '../../store/chat.ts'
+import { sendPromptInBackground } from '../../store/chat.ts'
 import { showSurface } from '../../store/surface.ts'
 import { useSystemInfo, useSystemStats } from '../../store/system.ts'
 
@@ -39,7 +39,7 @@ export function SystemSurface() {
   const memPercent = stats ? (stats.memoryUsed / stats.memoryTotal) * 100 : 0
   const askHermes = (text: string) => {
     showSurface('chat')
-    void sendPrompt(text)
+    void sendPromptInBackground(text)
   }
 
   return (

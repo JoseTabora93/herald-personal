@@ -7,15 +7,15 @@ interface Chip {
 }
 
 const WITH_ARTIFACT: Chip[] = [
-  { label: 'Shorten it', icon: <IconSparkles size={15} stroke={1.7} /> },
-  { label: 'Add milestones', icon: <IconList size={15} stroke={1.7} /> },
-  { label: 'Create slides', icon: <IconPresentation size={15} stroke={1.7} /> }
+  { label: 'Hazlo más breve', icon: <IconSparkles size={15} stroke={1.7} /> },
+  { label: 'Añade hitos', icon: <IconList size={15} stroke={1.7} /> },
+  { label: 'Crea una presentación', icon: <IconPresentation size={15} stroke={1.7} /> }
 ]
 
 const GENERIC: Chip[] = [
-  { label: 'Explain more', icon: <IconMessageQuestion size={15} stroke={1.7} /> },
-  { label: 'Give me next steps', icon: <IconArrowRight size={15} stroke={1.7} /> },
-  { label: 'Summarize', icon: <IconListDetails size={15} stroke={1.7} /> }
+  { label: 'Explícame más', icon: <IconMessageQuestion size={15} stroke={1.7} /> },
+  { label: 'Dame los siguientes pasos', icon: <IconArrowRight size={15} stroke={1.7} /> },
+  { label: 'Resume', icon: <IconListDetails size={15} stroke={1.7} /> }
 ]
 
 /** Follow-up prompts after a finished turn; each chip sends its label as the next message. */

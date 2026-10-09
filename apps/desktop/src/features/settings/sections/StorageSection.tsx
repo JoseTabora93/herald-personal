@@ -5,7 +5,7 @@ import { formatBytes } from '../../../lib/format.ts'
 import { deviceNoun } from '../../../lib/platform-labels.ts'
 import { useLocalData } from '../../../lib/use-async.ts'
 import { $env } from '../../../store/backend.ts'
-import { sendPrompt } from '../../../store/chat.ts'
+import { sendPromptInBackground } from '../../../store/chat.ts'
 import { useSystemStats } from '../../../store/system.ts'
 import { showPage } from '../../../store/windows.ts'
 import { SectionTitle, SettingsGroup, SettingsRow } from './shared.tsx'
@@ -18,7 +18,7 @@ export function StorageSection() {
 
   const askHermes = () => {
     showPage('hermes')
-    void sendPrompt("What's using all my disk space? Start from my home folder.")
+    void sendPromptInBackground("What's using all my disk space? Start from my home folder.")
   }
 
   return (

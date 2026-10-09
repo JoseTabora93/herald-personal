@@ -3,7 +3,7 @@ import { IconLayoutGrid, IconPlugConnected, IconPlus, IconRefresh } from '@table
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { EmptyGlass, GlassButton, GlassCard, PageHeader, SearchField, Tabs, type TabDef } from '../../components/ui/glass.tsx'
 import { useBackendData } from '../../lib/use-async.ts'
-import { sendPrompt } from '../../store/chat.ts'
+import { sendPromptInBackground } from '../../store/chat.ts'
 import { $connectionsTick, setConnectionEnabled } from '../../store/connections-actions.ts'
 import { $activity } from '../../store/missions.ts'
 import { notify } from '../../store/notifications.ts'
@@ -122,7 +122,7 @@ export function ConnectionsPage() {
 
   const openHermesFor = (name: string) => {
     showPage('hermes')
-    void sendPrompt(`Help me set up the ${name} integration in Hermes.`)
+    void sendPromptInBackground(`Help me set up the ${name} integration in Hermes.`)
   }
 
   const setEnabled = (connection: Connection, enabled: boolean) => {
@@ -194,7 +194,7 @@ export function ConnectionsPage() {
   const startProviderSignIn = async (id: string, name: string, flow: string, cliCommand?: string | null) => {
     if (flow !== 'device_code') {
       showPage('hermes')
-      void sendPrompt(`Help me sign in to ${name}${cliCommand ? ` by running \`${cliCommand}\`` : ''}.`)
+      void sendPromptInBackground(`Help me sign in to ${name}${cliCommand ? ` by running \`${cliCommand}\`` : ''}.`)
 
       return
     }
