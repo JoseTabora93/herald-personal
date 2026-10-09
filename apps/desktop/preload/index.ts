@@ -90,7 +90,9 @@ const subscribe = <T,>(channel: string, listener: (payload: T) => void): Unsubsc
 /** The whole capability surface the renderer gets. Keep it narrow and typed. */
 const api = {
   personal: {
-    request: <T,>(request: PersonalRequest): Promise<T> => ipcRenderer.invoke(IPC.personalRequest, request)
+    request: <T,>(request: PersonalRequest): Promise<T> => ipcRenderer.invoke(IPC.personalRequest, request),
+    mailOpen: (route?: string): Promise<{ id: string; baseUrl: string }> => ipcRenderer.invoke(IPC.personalMailOpen, route),
+    mailNavigate: (id: string, route: string): Promise<void> => ipcRenderer.invoke(IPC.personalMailNavigate, id, route)
   },
   backend: {
     getState: (): Promise<BackendState> => ipcRenderer.invoke(IPC.backendGetState),

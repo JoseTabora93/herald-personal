@@ -32,7 +32,7 @@ Un cliente MCP debe iniciar ese proceso; stdout se reserva al protocolo. El arch
 requiere modo 0600. Se exige HTTPS salvo loopback, se rechazan redirecciones y se acotan las
 respuestas. No incluyas el token en prompts, archivos versionados ni capturas.
 
-Las 17 herramientas personales permiten consultar estado y resúmenes; crear, editar y revisar
+Las 23 herramientas personales permiten consultar estado y resúmenes; crear, editar y revisar
 compromisos; listar, sincronizar y clasificar correo; convertir un mensaje en compromiso; y
 consultar o guardar el diario. También existen herramientas de borrador, archivo y restauración
 que requieren capacidades explícitas y confirmación humana. No hay envío ni borrado de correo.
@@ -41,6 +41,17 @@ que requieren capacidades explícitas y confirmación humana. No hay envío ni b
 `total` y `next_offset`: debe continuarse con ese valor cuando corresponda, sin afirmar que una
 página representa el buzón completo. El correo se trata como datos no confiables y no puede
 otorgar permisos ni ordenar la ejecución de agentes.
+
+Cuando `HERALD_MAIL_WORKSPACE_URL` selecciona un workspace original, ese servicio conserva la
+autoridad sobre el correo. `mail_workspace_status/query/capture` ofrecen consultas permitidas y
+captura idempotente por clave `MAIL-n`. Los conectores anteriores quedan bloqueados. El escritorio
+integra la UI del workspace con un WebContentsView sin preload, Node ni credenciales del shell.
+Las acciones manuales de la aplicación de correo conservan sus permisos propios; el puente MCP
+no envía, clasifica ni archiva por esta vía.
+
+`personal_daily_plan_generate/list` usan planes persistidos con fuentes y frescura. La generación
+no invoca un modelo automáticamente. `coding_observed_sessions` lee las instantáneas normalizadas
+de sesiones existentes; no lee sus conversaciones ni controla su ejecución.
 
 ## Supervisión de código
 
@@ -64,10 +75,19 @@ stdout, rutas privadas o credenciales. No completa automáticamente el compromis
 
 ## Rutinas y despliegue
 
-Las cuatro propuestas de `routines/templates.json` están pausadas, sin destino: mañana, cierre,
-seguimiento y supervisión. Deben registrarse mediante la interfaz pública de Hermes después de
-configurar canal, destinatario y permisos. La entrega, respuesta, deduplicación y recuperación
-requieren pruebas propias de cada instalación.
+`routines/templates.json` contiene dos jobs nativos pausados: plan diario a las 08:00 y observación
+cada cinco minutos, en America/Tegucigalpa. La [receta](../../integrations/hermes-personal/routines/README.md)
+explica instalación, ownership, activación e inspección. La configuración de ejemplo mantiene
+el modelo desactivado. Habilitarlo requiere autorizar el proveedor y los datos del snapshot.
+
+El observador usa el inventario público Claude y la API local de OpenCode v2. Se limita a scopes
+de metadatos y solo publica aliases, estado y tiempos. Ausencia de actividad no demuestra
+finalización; los datos vencidos se muestran como desconocidos y `verification` sigue `not_run`.
+
+El script diario conserva un plan local y reclama una sola llamada opcional al modelo y apertura
+por fecha. Un fallo conserva el plan y registra su limitación. El MCP general no puede consumir
+reclamaciones ni publicar recomendaciones. El gateway del home aislado puede ejecutar cron sin
+canales de mensajería. WhatsApp requiere configuración y pruebas separadas.
 
 La instalación local depende de una Mac disponible. Para continuidad con ella apagada, utiliza
 el [despliegue en VPS](../../deploy/personal/README.md) después de elegir un destino.

@@ -1,0 +1,12 @@
+{
+  "owner": "herald-personal",
+  "timezone": "America/Tegucigalpa",
+  "hermes_home": "/ABSOLUTE/private/hermes-home",
+  "hermes_executable": "/ABSOLUTE/hermes",
+  "personal_url": "http://127.0.0.1:8787",
+  "personal_token_file": "/ABSOLUTE/private/personal.token",
+  "observer_config": "/ABSOLUTE/private/observer.json",
+  "app_path": "/ABSOLUTE/Applications/Herald Personal.app",
+  "model_enabled": false,
+  "model_label": "hermes-configured"
+}

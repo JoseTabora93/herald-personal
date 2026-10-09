@@ -18,6 +18,14 @@ function transport(overrides: Record<string, unknown> = {}) {
 }
 
 describe('personal data controller', () => {
+  it('refreshes the personal day without depending on the retired mail copy', async () => {
+    const request = transport({ '/v1/mail/threads?limit=50&offset=0': new Error('Retired copy is unavailable') })
+    const personal = createPersonalController(request)
+    await personal.refresh()
+    expect(personal.state.get()).toMatchObject({ error: null, tasks: [task] })
+    expect(request.mock.calls.some(([req]) => req.path.startsWith('/v1/mail/threads'))).toBe(false)
+  })
+
   it('follows service offsets and returns through the visited pages when page lengths vary', async () => {
     const pages = {
       0: { items: [{ id: 'm-1' }, { id: 'm-2' }], providers: [], total: 6, offset: 0, next_offset: 2 },
@@ -239,7 +247,7 @@ describe('personal data controller', () => {
     const second = { id: 'm-2', category: 'reference', task_id: null, archived: false }
     const request = transport({ '/v1/mail/threads?limit=50&offset=0': { items: [first, second], providers: [], total: 2, offset: 0, next_offset: null }, '/v1/mail/threads/m-1': { ...first, category: 'urgent' }, '/v1/mail/threads/m-1/task': task, '/v1/status': { ...status, capabilities: { ...status.capabilities, mail_archive: true } }, '/v1/mail/threads/m-1/archive': { action_id: 'a-1', archived: true } })
     const personal = createPersonalController(request)
-    await personal.refresh()
+    await personal.searchMail('', '')
     await personal.categorizeMail('m-1', 'urgent')
     expect(personal.state.get().mail[0].category).toBe('urgent')
     await personal.captureMail('m-1')

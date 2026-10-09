@@ -32,6 +32,10 @@ const maxResponseBytes = 2 * 1024 * 1024
 const id = '[A-Za-z0-9_-]{1,128}'
 const routes: [string, RegExp, string[]][] = [
   ['GET', /^\/v1\/(status|overview)$/, []],
+  ['GET', /^\/v1\/(mail-workspace\/status|agent-observations)$/, []],
+  ['GET', /^\/v1\/daily-plans$/, ['date']],
+  ['POST', /^\/v1\/daily-plans\/generate$/, []],
+  ['POST', /^\/v1\/mail-workspace\/(query|tasks)$/, []],
   ['GET', /^\/v1\/brief$/, ['kind']],
   ['GET', /^\/v1\/tasks$/, ['status', 'q']],
   ['POST', /^\/v1\/tasks$/, []],

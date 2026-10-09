@@ -1,0 +1,7 @@
+{
+  "claude_executable": "/ABSOLUTE/claude",
+  "opencode_service_file": "/ABSOLUTE/.local/state/opencode/service.json",
+  "workspaces": {
+    "authorized-project": "/ABSOLUTE/authorized-project"
+  }
+}

@@ -1,16 +1,20 @@
 {
   "syntheticOnly": true,
-  "startedAt": "2026-10-08T22:30:12.899Z",
+  "startedAt": "2026-10-09T02:17:24.885Z",
   "service": "http://127.0.0.1:8788",
   "checks": [
     {
-      "name": "Full Electron, isolated Chromium profile and authenticated personal connection",
+      "name": "Scheduled flag opens Personal after renderer boot with authenticated connection",
+      "result": "PASS"
+    },
+    {
+      "name": "Daily plan is explicitly generated once and kept with its evidence",
       "result": "PASS"
     },
     {
       "name": "GUI commitment create and Tegucigalpa date-only persistence",
       "result": "PASS",
-      "id": "8a3e40d4-0977-4d97-9712-36b4645f0243",
+      "id": "1aa4c491-2ae8-4a7b-9e5f-c44d291c0c95",
       "revision": 1
     },
     {
@@ -24,21 +28,19 @@
     {
       "name": "GUI diary save and tab preservation leave task status unchanged",
       "result": "PASS",
-      "id": "29ce2518-0761-4118-8cdf-7dc00751db61"
+      "id": "0a51398f-023c-492d-a1fb-bddac428a5cd"
     },
     {
-      "name": "GUI navigates 55 persisted messages and restores selection on the previous page",
+      "name": "Embedded mail stays isolated and keeps its draft across tab switches",
       "result": "PASS"
     },
     {
-      "name": "GUI sync, search, category, plain-text body and disabled provider writes",
+      "name": "Native guest selection and MCP capture share the original MAIL identity",
       "result": "PASS"
     },
     {
-      "name": "GUI and official MCP stdio capture return one durable task identity",
-      "result": "PASS",
-      "mailId": "3b1eba99-9a87-4f20-bbbe-22e1c109b260",
-      "taskId": "756265d7-ad50-4450-be9c-100789f61db2"
+      "name": "Native mail navigation uses the original app surface",
+      "result": "PASS"
     },
     {
       "name": "GUI persisted coding snapshot distinguishes process exit from validation",
@@ -55,7 +57,7 @@
     {
       "name": "Synthetic provider received only GET; renderer has no uncaught errors",
       "result": "PASS",
-      "providerRequests": 1
+      "providerRequests": 19
     }
   ],
   "screenshots": [
@@ -63,9 +65,8 @@
     "02-qa-conflicto-revision.png",
     "03-qa-compromisos.png",
     "04-qa-diario.png",
-    "05a-qa-correo-segunda-pagina.png",
+    "05c-qa-vista-nativa.png",
     "05-qa-correo-sintetico.png",
-    "05b-qa-escrituras-deshabilitadas.png",
     "06-qa-desarrollo.png",
     "07-qa-resumen.png",
     "07b-qa-servicio-desconectado.png",
@@ -73,14 +74,25 @@
   ],
   "pageErrors": [],
   "consoleErrors": [],
-  "teardownConsoleErrors": [],
+  "teardownConsoleErrors": [
+    {
+      "at": "2026-10-09T02:18:11.008Z",
+      "phase": "teardown",
+      "message": "WebSocket connection to 'ws://127.0.0.1:57738/api/ws?token=[redacted]' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED"
+    },
+    {
+      "at": "2026-10-09T02:18:19.649Z",
+      "phase": "teardown",
+      "message": "WebSocket connection to 'ws://127.0.0.1:58100/api/ws?token=[redacted]' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED"
+    }
+  ],
   "playwrightVersion": "1.62.1",
-  "builtMainSha256": "8511a5f729acfe0fa32b907035417ee740ed6165bed5050c52d80af359a20e21",
+  "builtMainSha256": "cc0c314c30e2774eeff9f58c6c572954525b69cdf86978582c8a3cacfcb67017",
   "electronVersions": {
     "electron": "44.5.1",
     "chromium": "152.0.7977.130",
     "node": "24.21.0"
   },
   "result": "PASS",
-  "finishedAt": "2026-10-08T22:31:12.605Z"
+  "finishedAt": "2026-10-09T02:18:22.235Z"
 }

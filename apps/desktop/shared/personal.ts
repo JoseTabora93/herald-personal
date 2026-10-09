@@ -65,16 +65,20 @@ export interface PersonalStatus {
   version: string
   timezone: string
   providers: PersonalProviderStatus[]
+  mail_source?: 'workspace' | 'basic'
+  mail_workspace?: PersonalMailWorkspaceStatus | null
   capabilities: { mail_read: boolean; mail_draft: boolean; mail_archive: boolean; agent_supervision: boolean }
 }
 
 export interface PersonalOverview {
   timezone: string
   as_of: string
-  counts: { open: number; overdue: number; urgent_mail: number; waiting_review: number }
+  counts: { open: number; overdue: number; urgent_mail: number | null; waiting_review: number }
   priorities: PersonalTask[]
   recent_checkins: PersonalCheckin[]
   providers: PersonalProviderStatus[]
+  mail_source?: 'workspace' | 'basic'
+  mail_workspace?: PersonalMailWorkspaceStatus | null
 }
 
 export interface PersonalRequest {
@@ -109,4 +113,50 @@ export interface PersonalAgentRun {
   updated_at: string
   verification: 'not_run'
   attempts: PersonalAgentAttempt[]
+}
+
+export interface PersonalMailWorkspaceStatus {
+  configured: boolean
+  reachable: boolean
+  base_url: string | null
+  error: string | null
+  counts: Record<string, unknown> | null
+}
+
+export type PersonalObservationStatus = 'active' | 'idle' | 'waiting_permission' | 'waiting_input' | 'retrying' | 'error' | 'ended' | 'unknown'
+export interface PersonalAgentObservation {
+  observer_id: string
+  revision: number
+  observed_at: string
+  agent: 'claude' | 'opencode'
+  native_session_id: string
+  workspace: string
+  status: PersonalObservationStatus
+  effective_status: PersonalObservationStatus
+  evidence_source: string
+  confidence: 'high' | 'medium' | 'low'
+  source_updated_at: string | null
+  stale_after_seconds: number
+  signals: string[]
+  verification: 'not_run'
+  is_stale: boolean
+}
+
+export interface PersonalDailyPlan {
+  date: string
+  timezone: string
+  revision: number
+  generated_at: string
+  updated_at: string
+  status: 'ready' | 'partial'
+  summary: string
+  priorities: { id: string; title: string; reason: string; source_ref: string; kind: 'task' | 'mail' | 'agent' }[]
+  recommendations: { title: string; reason: string; evidence_refs: string[]; author: 'rules' | 'hermes' }[]
+  sources: { id: string; kind: string; status: 'available' | 'unavailable' | 'stale'; as_of: string | null; description: string }[]
+  mail_summary: { available: boolean; last_sync_at: string | null; window_days: number | null; total: number; needs_reply: number; waiting_reply: number; unclassified: number }
+  agent_summary: { active: number; attention: number; unknown: number }
+  limitations: string[]
+  model: string | null
+  model_error: 'not_configured' | 'timeout' | 'invalid_response' | 'provider_error' | null
+  verification: 'not_run'
 }

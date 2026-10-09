@@ -1,5 +1,5 @@
 import { atom } from 'nanostores'
-import type { PersonalAgentRun, PersonalCheckin, PersonalMailPage, PersonalMailThread, PersonalOverview, PersonalProviderStatus, PersonalRequest, PersonalStatus, PersonalTask } from '../../../shared/personal.ts'
+import type { PersonalAgentObservation, PersonalAgentRun, PersonalCheckin, PersonalDailyPlan, PersonalMailPage, PersonalMailThread, PersonalOverview, PersonalProviderStatus, PersonalRequest, PersonalStatus, PersonalTask } from '../../../shared/personal.ts'
 import { dateToDueAt, errorMessage } from './model.ts'
 
 export type PersonalTransport = (request: PersonalRequest) => Promise<unknown>
@@ -28,6 +28,13 @@ export interface PersonalData {
   agentRuns: PersonalAgentRun[]
   agentRunsLoading: boolean
   agentRunsError: string | null
+  agentObservations: PersonalAgentObservation[]
+  agentObservationsLoading: boolean
+  agentObservationsError: string | null
+  dailyPlan: PersonalDailyPlan | null
+  dailyPlanDate: string | null
+  dailyPlanLoading: boolean
+  dailyPlanError: string | null
 }
 
 const itemPath = (prefix: string, id: string) => `${prefix}/${encodeURIComponent(id)}`
@@ -45,30 +52,29 @@ const mailSnapshot = (result: PersonalMailPage, query: string, category: string,
 
 /** Renderer state contains service records only. The injected transport owns authentication. */
 export function createPersonalController(transport: PersonalTransport) {
-  const state = atom<PersonalData>({ status: null, overview: null, tasks: [], mail: [], providers: [], checkins: [], loading: false, mailLoading: false, error: null, mailError: null, lastLoadedAt: null, mailQuery: '', mailCategory: '', mailTotal: 0, mailOffset: 0, mailNextOffset: null, mailPreviousOffsets: [], brief: null, lastArchive: null, agentRuns: [], agentRunsLoading: false, agentRunsError: null })
+  const state = atom<PersonalData>({ status: null, overview: null, tasks: [], mail: [], providers: [], checkins: [], loading: false, mailLoading: false, error: null, mailError: null, lastLoadedAt: null, mailQuery: '', mailCategory: '', mailTotal: 0, mailOffset: 0, mailNextOffset: null, mailPreviousOffsets: [], brief: null, lastArchive: null, agentRuns: [], agentRunsLoading: false, agentRunsError: null, agentObservations: [], agentObservationsLoading: false, agentObservationsError: null, dailyPlan: null, dailyPlanDate: null, dailyPlanLoading: false, dailyPlanError: null })
   const patch = (value: Partial<PersonalData>) => state.set({ ...state.get(), ...value })
   const request = async <T>(method: PersonalRequest['method'], path: string, body?: unknown): Promise<T> => transport({ method, path, ...(body === undefined ? {} : { body }) } as PersonalRequest) as Promise<T>
   let generation = 0
   let mailGeneration = 0
   let runsGeneration = 0
+  let observationsGeneration = 0
+  let planGeneration = 0
   const writes = new Set<string>()
 
-  async function refresh(resetMail = false) {
+  async function refresh() {
     const current = ++generation
-    const mailCurrent = ++mailGeneration
-    const { mailQuery, mailCategory, mailOffset, mailPreviousOffsets } = state.get()
     patch({ loading: true, error: null })
     try {
-      const [status, overview, tasks, mail, checkins] = await Promise.all([
+      const [status, overview, tasks, checkins] = await Promise.all([
         request<PersonalStatus>('GET', '/v1/status'), request<PersonalOverview>('GET', '/v1/overview'),
         request<{ items: PersonalTask[] }>('GET', '/v1/tasks'),
-        request<PersonalMailPage>('GET', mailPath(mailQuery, mailCategory, resetMail ? 0 : mailOffset)),
         request<{ items: PersonalCheckin[] }>('GET', '/v1/checkins')
       ])
       if (current !== generation) return
-      patch({ status, overview, tasks: tasks.items, checkins: checkins.items, providers: status.providers, loading: false, error: null, lastLoadedAt: new Date().toISOString(), ...(mailCurrent === mailGeneration ? mailSnapshot(mail, mailQuery, mailCategory, resetMail ? [] : mailPreviousOffsets) : {}) })
+      patch({ status, overview, tasks: tasks.items, checkins: checkins.items, providers: status.providers, loading: false, error: null, lastLoadedAt: new Date().toISOString() })
     } catch (error) {
-      if (current === generation) patch({ loading: false, error: errorMessage(error), ...(mailCurrent === mailGeneration ? { mailLoading: false } : {}) })
+      if (current === generation) patch({ loading: false, error: errorMessage(error) })
     }
   }
 
@@ -127,6 +133,36 @@ export function createPersonalController(transport: PersonalTransport) {
 
   return {
     state, refresh, searchMail, pageMail,
+    async loadDailyPlan(date: string) {
+      const current = ++planGeneration
+      patch({ dailyPlanDate: date, dailyPlan: state.get().dailyPlan?.date === date ? state.get().dailyPlan : null, dailyPlanLoading: true, dailyPlanError: null })
+      try {
+        const result = await request<{ items: PersonalDailyPlan[] }>('GET', `/v1/daily-plans?date=${encodeURIComponent(date)}`)
+        if (current === planGeneration) patch({ dailyPlan: result.items.find(plan => plan.date === date) ?? null, dailyPlanLoading: false })
+      } catch (error) {
+        if (current === planGeneration) patch({ dailyPlanLoading: false, dailyPlanError: errorMessage(error) })
+      }
+    },
+    async generateDailyPlan(date: string) {
+      const current = ++planGeneration
+      patch({ dailyPlanDate: date, dailyPlan: state.get().dailyPlan?.date === date ? state.get().dailyPlan : null, dailyPlanLoading: true, dailyPlanError: null })
+      try {
+        const result = await request<PersonalDailyPlan>('POST', '/v1/daily-plans/generate', { date })
+        if (current === planGeneration) patch({ dailyPlan: result, dailyPlanLoading: false })
+      } catch (error) {
+        if (current === planGeneration) patch({ dailyPlanLoading: false, dailyPlanError: errorMessage(error) })
+      }
+    },
+    async loadAgentObservations() {
+      const current = ++observationsGeneration
+      patch({ agentObservationsLoading: true, agentObservationsError: null })
+      try {
+        const result = await request<{ items: PersonalAgentObservation[] }>('GET', '/v1/agent-observations')
+        if (current === observationsGeneration) patch({ agentObservations: result.items, agentObservationsLoading: false })
+      } catch (error) {
+        if (current === observationsGeneration) patch({ agentObservationsLoading: false, agentObservationsError: errorMessage(error) })
+      }
+    },
     async loadAgentRuns() {
       const current = ++runsGeneration
       patch({ agentRunsLoading: true, agentRunsError: null })
@@ -138,6 +174,7 @@ export function createPersonalController(transport: PersonalTransport) {
       }
     },
     createTask: (body: unknown) => saveTask('POST', '/v1/tasks', body),
+    captureWorkspaceMail: (clave: string) => saveTask('POST', '/v1/mail-workspace/tasks', { clave }),
     updateTask: (id: string, body: { expected_revision: number } & Record<string, unknown>) => saveTask('PATCH', itemPath('/v1/tasks', id), body),
     async getTask(id: string) {
       const task = await request<PersonalTask>('GET', itemPath('/v1/tasks', id))
@@ -147,7 +184,8 @@ export function createPersonalController(transport: PersonalTransport) {
     taskEvents: (id: string) => request<{ items: TaskEvent[] }>('GET', `${itemPath('/v1/tasks', id)}/events`),
     async syncMail(provider: PersonalProviderStatus['provider']) {
       const result = await request<{ count: number; provider: string }>('POST', '/v1/mail/sync', { provider })
-      await refresh(true)
+      await refresh()
+      await searchMail(state.get().mailQuery, state.get().mailCategory)
       return result
     },
     async categorizeMail(id: string, category: PersonalMailThread['category']) {

@@ -48,3 +48,11 @@ Overview: {timezone,as_of,counts:{open,overdue,urgent_mail,waiting_review},prior
 ## Acceptance
 
 An email becomes the same durable commitment from GUI or MCP. Stale edits and retried creates cannot overwrite/duplicate. Inbox read/classification works without write authority. Drafting never sends. No arbitrary executable/path is accepted for coding execution. Check-ins and tasks survive restart. Unconfigured external services show actionable status. App and service builds, types, tests and secrets scans pass; real account/WhatsApp/cloud tests remain explicitly NOT_RUN unless connected and actually exercised.
+
+## Workspace and daily-plan extension (2026-10-08)
+
+The configured mail workspace owns message identity and provider operations. A native isolated view preserves its existing UI and drafts; the Hermes bridge provides allowlisted reads and idempotent MAIL-n capture only. Legacy mail mutations and synchronization fail closed while workspace authority is enabled. The guest has no shell preload or Node access, and renderer-supplied URLs cannot replace the configured origin.
+
+Daily plans and observed sessions are persisted through the same authenticated API. Observation reads public Claude/OpenCode metadata within configured scopes, never conversation content or agent control endpoints. Stale records become unknown; process state never implies reviewed work. Separate script-only routes claim a maximum of one model invocation and one local opening per date; the general MCP cannot access these claims or submit model recommendations.
+
+The operator requested a daily 08:00 plan in America/Tegucigalpa and session monitoring. Native Hermes templates contain those two jobs only, paused for a new installation. Activation belongs to the local operator after verification. The optional model remains off until the destination and snapshot payload are authorized. Cloud and messaging channel activation remain separate.

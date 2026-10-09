@@ -27,6 +27,8 @@ LABEL = "dev.josetabora.herald-personal"
 URL = "http://127.0.0.1:8787"
 OWNER_FILE = ".herald-personal-install.json"
 MAIL_KEYS = {
+    "HERALD_MAIL_WORKSPACE_URL",
+    "HERALD_MAIL_WORKSPACE_TOKEN_FILE",
     "HERALD_MICROSOFT365_MSAL_CACHE",
     "HERALD_MICROSOFT365_CLIENT_ID",
     "HERALD_MICROSOFT365_TENANT_ID",
@@ -34,6 +36,7 @@ MAIL_KEYS = {
     "HERALD_GMAIL_TOKEN_FILE",
 }
 MAIL_FILES = {
+    "HERALD_MAIL_WORKSPACE_TOKEN_FILE": "mail-workspace-token",
     "HERALD_MICROSOFT365_MSAL_CACHE": "microsoft365-msal.json",
     "HERALD_MICROSOFT365_TOKEN_FILE": "microsoft365-token",
     "HERALD_GMAIL_TOKEN_FILE": "gmail-token",

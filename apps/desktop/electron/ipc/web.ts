@@ -1,4 +1,4 @@
-import { BrowserWindow, ipcMain, net, session, type WebContents, WebContentsView } from 'electron'
+import { BrowserWindow, ipcMain, net, session, shell, type WebContents, WebContentsView } from 'electron'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
@@ -6,6 +6,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { IPC, type WebOpenOptions, type WebViewBounds, type WebViewEvent } from '../../shared/ipc.ts'
 import { isViewable } from '../../shared/viewer.ts'
 import { log } from '../log.ts'
+import { mailViewAllows, mailViewUrl } from '../personal/mail-view.ts'
 
 /*
  * Embedded web pages. Herald OS is a whole environment, so a web page (the provider sign-in portal,
@@ -20,6 +21,7 @@ import { log } from '../log.ts'
 
 export const WEB_PARTITION = 'persist:herald-web'
 const VIEWER_PARTITION = 'persist:herald-viewer'
+const MAIL_PARTITION = 'persist:herald-mail'
 const DETACHED_SIZE = { width: 1000, height: 720 }
 
 const isHttp = (url: string): boolean => /^https?:\/\//i.test(url)
@@ -119,6 +121,79 @@ export class WebViews {
   private readonly previewRoots = new Map<string, string | null>()
   private readonly previewFolders = new Map<string, string>()
   private readonly viewerFiles = new Map<string, string>()
+  private readonly mailOrigins = new Map<string, string>()
+
+  /** Mail remains in its own application and database; no guest gets the shell preload. */
+  openMail(owner: WebContents, origin: string, route = '/tablero'): string {
+    const url = mailViewUrl(origin, route)
+    lockDownPartition(MAIL_PARTITION)
+    this.hookOwner(owner)
+    const id = `web-${++this.counter}`
+    const host = BrowserWindow.fromWebContents(owner)
+    const preferences = { ...GUEST_PREFERENCES, partition: MAIL_PARTITION }
+    const entry = this.embed && host && !host.isDestroyed()
+      ? this.createEmbedded(id, host, owner, preferences)
+      : this.createDetached(id, owner, 'Correo', preferences)
+    this.entries.set(id, entry)
+    this.mailOrigins.set(id, new URL(url).origin)
+    const contents = entry.kind === 'view' ? entry.view.webContents : entry.win.webContents
+    this.guardMail(id, contents, new URL(url).origin)
+    this.navigateMail(owner, id, route)
+    return id
+  }
+
+  navigateMail(owner: WebContents, id: string, route: string): void {
+    const contents = this.contentsFor(id, owner)
+    const origin = this.mailOrigins.get(id)
+    if (!contents || !origin) throw new Error('La vista de correo no está disponible.')
+    const url = mailViewUrl(origin, route)
+    void contents.loadURL(url).catch(() => this.emitFor(id, { id, type: 'error', error: 'No se pudo cargar la vista de correo.' }))
+  }
+
+  private guardMail(id: string, contents: WebContents, origin: string): void {
+    const allowed = (url: string) => mailViewAllows(origin, url)
+    contents.setWindowOpenHandler(({ url }) => {
+      if (allowed(url)) {
+        void contents.loadURL(mailViewUrl(origin, new URL(url).pathname + new URL(url).search)).catch(() => undefined)
+      } else {
+        // Preserve the original human-facing Outlook link, outside the mail guest and agent context.
+        try {
+          const target = new URL(url)
+          if (target.protocol === 'https:' && !target.username && !target.password &&
+              ['outlook.office.com', 'outlook.office365.com', 'outlook.live.com'].includes(target.hostname) && url.length <= 4096) {
+            void shell.openExternal(url).catch(() => undefined)
+          }
+        } catch { /* Invalid popup URLs stay closed. */ }
+      }
+      return { action: 'deny' }
+    })
+    const guardNavigation = (event: Electron.Event, url: string) => { if (!allowed(url)) event.preventDefault() }
+    contents.on('will-navigate', guardNavigation)
+    contents.on('will-redirect', guardNavigation)
+    contents.on('will-attach-webview', event => event.preventDefault())
+    contents.on('page-title-updated', event => event.preventDefault())
+    const reportUrl = () => {
+      if (contents.isDestroyed()) return
+      const url = contents.getURL()
+      if (allowed(url)) this.emitFor(id, { id, type: 'url', url })
+      else {
+        this.emitFor(id, { id, type: 'error', error: 'La navegación salió de las vistas de correo permitidas.' })
+        void contents.loadURL(mailViewUrl(origin)).catch(() => undefined)
+      }
+    }
+    contents.on('did-navigate', reportUrl)
+    contents.on('did-navigate-in-page', (_event, _url, isMainFrame) => { if (isMainFrame) reportUrl() })
+    contents.on('did-start-navigation', (_event, _url, isInPlace, isMainFrame) => {
+      if (isMainFrame && !isInPlace) this.emitFor(id, { id, type: 'loading', loading: true })
+    })
+    contents.on('did-finish-load', () => {
+      reportUrl()
+      this.emitFor(id, { id, type: 'loading', loading: false })
+    })
+    contents.on('did-fail-load', (_event, code, _description, _url, isMainFrame) => {
+      if (isMainFrame && code !== -3) this.emitFor(id, { id, type: 'error', error: 'No se pudo cargar la vista de correo.' })
+    })
+  }
 
   /**
    * A Studio preview: a web page (usually the dev server on localhost) or a local file inside the
@@ -310,6 +385,7 @@ export class WebViews {
     this.previewRoots.delete(id)
     this.previewFolders.delete(id)
     this.viewerFiles.delete(id)
+    this.mailOrigins.delete(id)
 
     if (entry.kind === 'view') {
       if (!entry.host.isDestroyed()) {

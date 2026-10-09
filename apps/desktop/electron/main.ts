@@ -5,7 +5,8 @@ import path from 'node:path'
 import { type EnvInfo, type HeraldOSPrefs, IPC, type RestRequest, type ShellCommand, type WindowState } from '../shared/ipc.ts'
 import { BackendManager } from './backend/manager.ts'
 import { personalEnvironment, requestPersonal } from './personal/client.ts'
-import type { PersonalRequest } from '../shared/personal.ts'
+import type { PersonalMailWorkspaceStatus, PersonalRequest } from '../shared/personal.ts'
+import { PlanLauncher } from './personal/plan-launch.ts'
 import { forgetInheritedSession } from './backend/session-env.ts'
 import { CrashWatcher } from './crash/watch.ts'
 import { fireEventAutomations } from './events/automations.ts'
@@ -95,6 +96,12 @@ const panels = mode === 'panels' ? new PanelShell(win => attachMainWindow(win)) 
 const wallpaper = panels ? new WallpaperService(panels) : null
 // The agent's `os_ui` tool and the CLI run registry commands in the Hermes window through this bridge.
 const osBridge = new OsCommandBridge(() => (panels ? panels.mainWindow() : mainWindow))
+const planLauncher = new PlanLauncher(
+  () => { mainWindow?.show(); mainWindow?.focus() },
+  (command, args, source) => osBridge.run(command, args, source),
+  () => log('personal', 'No se pudo abrir el plan diario en la ventana.')
+)
+void planLauncher.request(process.argv)
 const plugins = new PluginHost(
   () => BrowserWindow.getAllWindows(),
   () => (panels ? panels.mainWindow() : mainWindow),
@@ -319,11 +326,26 @@ function registerCoreIpc(): void {
   registerVoiceIpc(backend)
   // Desktop mode layers pages over the shell window; panels mode gives them compositor windows.
   const webViews = registerWebIpc(mode === 'desktop')
+  ipcMain.handle(IPC.personalMailOpen, async (event, route?: string) => {
+    if (event.senderFrame !== event.sender.mainFrame || !BrowserWindow.fromWebContents(event.sender) || !isShellPage(event.senderFrame.url)) {
+      throw new Error('Solicitud personal no permitida.')
+    }
+    const status = await requestPersonal<PersonalMailWorkspaceStatus>({ method: 'GET', path: '/v1/mail-workspace/status' }, await personalEnvironment(path.join(personalInstall, 'connection.json')))
+    if (!status.configured || !status.reachable || !status.base_url) throw new Error('La aplicación de correo no está disponible. Revisa su conexión en Personal.')
+    return { id: webViews.openMail(event.sender, status.base_url, route), baseUrl: status.base_url }
+  })
+  ipcMain.handle(IPC.personalMailNavigate, (event, id: string, route: string) => {
+    if (event.senderFrame !== event.sender.mainFrame || !BrowserWindow.fromWebContents(event.sender) || !isShellPage(event.senderFrame.url)) {
+      throw new Error('Solicitud personal no permitida.')
+    }
+    webViews.navigateMail(event.sender, id, route)
+  })
   registerEditIpc(() => webViews)
 }
 
 function attachMainWindow(win: BrowserWindow): void {
   mainWindow = win
+  win.webContents.on('did-finish-load', () => { void planLauncher.ready() })
 
   win.on('enter-full-screen', broadcastWindowState)
   win.on('leave-full-screen', broadcastWindowState)
@@ -397,7 +419,8 @@ app.whenReady().then(async () => {
   void backend.start()
 })
 
-app.on('second-instance', () => {
+app.on('second-instance', (_event, argv) => {
+  void planLauncher.request(argv)
   if (mainWindow) {
     mainWindow.show()
     mainWindow.focus()

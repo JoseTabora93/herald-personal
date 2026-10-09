@@ -9,6 +9,10 @@ import os
 from pathlib import Path
 import secrets
 import sys
+from datetime import UTC, datetime
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from threading import Thread
+from urllib.parse import urlparse
 
 ROOT = Path(__file__).resolve().parents[1]
 QA = ROOT / ".runtime" / "qa"
@@ -100,8 +104,8 @@ async def capture_via_mcp(thread_id: str):
         async with ClientSession(read, write) as session:
             await session.initialize()
             tools = await session.list_tools()
-            assert any(tool.name == "personal_mail_to_task" for tool in tools.tools)
-            result = await session.call_tool("personal_mail_to_task", {"thread_id": thread_id})
+            assert any(tool.name == "mail_workspace_capture" for tool in tools.tools)
+            result = await session.call_tool("mail_workspace_capture", {"clave": thread_id})
             if result.isError:
                 raise RuntimeError("Synthetic MCP capture was rejected")
             task = json.loads(result.content[0].text)
@@ -113,13 +117,54 @@ def serve():
     import uvicorn
     from herald_personal.api import create_app
     from herald_personal.config import Settings
-    from herald_personal.providers.graph import GraphProvider
 
     token_file = initialize()
-    settings = Settings(data_dir=QA / "data", api_token_file=token_file, mail_draft_enabled=False, mail_archive_enabled=False)
-    adapter = GraphProvider("qa-synthetic-provider-only", client=httpx.Client(transport=httpx.MockTransport(graph_fixture), trust_env=False))
-    application = create_app(settings, providers={"microsoft365": adapter})
+    native = ThreadingHTTPServer(("127.0.0.1", 8098), NativeMailFixture)
+    Thread(target=native.serve_forever, daemon=True).start()
+    settings = Settings(data_dir=QA / "data", api_token_file=token_file, mail_workspace_url="http://127.0.0.1:8098", mail_draft_enabled=False, mail_archive_enabled=False)
+    application = create_app(settings)
     uvicorn.run(application, host="127.0.0.1", port=8788, log_level="warning", access_log=False)
+
+
+class NativeMailFixture(BaseHTTPRequestHandler):
+    """An explicit synthetic domain app proves the guest/HTTP/identity seam, not JEV logic."""
+
+    def log_message(self, *_args):
+        pass
+
+    def do_GET(self):
+        path = urlparse(self.path).path
+        with (QA / "provider-requests.jsonl").open("a") as stream:
+            stream.write(json.dumps({"method": "GET", "path": path}) + "\n")
+        if path == "/_agent-native/actions/mail-counts":
+            value = {"ventanaDias": 60, "total": 55, "noLeidos": 3,
+                     "porEstado": {"debo_respuesta": 2, "esperando_respuesta": 1},
+                     "porPrioridad": {"alta": 2},
+                     "ultimaSincronizacion": {"estado": "ok", "fin": datetime.now(UTC).isoformat()}}
+        elif path == "/_agent-native/actions/mail-get-item":
+            value = {"item": {"clave": "MAIL-1", "asunto": "QA SINTÉTICO · Revisar propuesta", "estado": "debo_respuesta"}}
+        elif path.startswith("/_agent-native/actions/"):
+            self.send_error(403)
+            return
+        else:
+            content = '''<!doctype html><html lang="es"><title>QA · Correo sintético</title>
+            <style>body{font:16px system-ui;padding:28px;background:#f7f9fc;color:#182438}a{display:inline-block;margin:12px;color:#164d92}textarea{display:block;width:90%;min-height:120px}h1{font-size:24px}</style>
+            <h1>QA · Aplicación de correo sintética</h1><p>Datos de prueba para verificar la integración nativa.</p>
+            <a href="/correo/MAIL-1">Abrir MAIL-1</a><a href="/seguimiento">Seguimiento</a><a href="/home">Ruta fuera de correo</a>
+            <p id="route"></p><label>Borrador sintético<textarea aria-label="Borrador sintético"></textarea></label>
+            <script>document.querySelector('#route').textContent=location.pathname;</script></html>'''.encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html;charset=utf-8")
+            self.send_header("Content-Length", str(len(content)))
+            self.end_headers()
+            self.wfile.write(content)
+            return
+        content = json.dumps(value).encode()
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(content)))
+        self.end_headers()
+        self.wfile.write(content)
 
 
 if __name__ == "__main__":

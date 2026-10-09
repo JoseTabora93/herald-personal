@@ -64,6 +64,8 @@ class Settings(BaseModel):
     microsoft365_tenant_id: str | None = Field(default=None, repr=False)
     gmail_token: str | None = Field(default=None, repr=False)
     gmail_token_file: Path | None = Field(default=None, repr=False)
+    mail_workspace_url: str | None = Field(default=None, repr=False)
+    mail_workspace_token_file: Path | None = Field(default=None, repr=False)
     mail_draft_enabled: bool = False
     mail_archive_enabled: bool = False
     max_sync_pages: int = Field(default=3, ge=1, le=10)
@@ -91,6 +93,8 @@ class Settings(BaseModel):
             microsoft365_tenant_id=os.environ.get("HERALD_MICROSOFT365_TENANT_ID"),
             gmail_token=os.environ.get("HERALD_GMAIL_TOKEN"),
             gmail_token_file=path("HERALD_GMAIL_TOKEN_FILE"),
+            mail_workspace_url=os.environ.get("HERALD_MAIL_WORKSPACE_URL"),
+            mail_workspace_token_file=path("HERALD_MAIL_WORKSPACE_TOKEN_FILE"),
             mail_draft_enabled=os.environ.get("HERALD_PERSONAL_MAIL_DRAFT_ENABLED") == "true",
             mail_archive_enabled=os.environ.get("HERALD_PERSONAL_MAIL_ARCHIVE_ENABLED") == "true",
         )

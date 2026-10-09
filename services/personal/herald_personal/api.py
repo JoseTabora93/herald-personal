@@ -5,6 +5,7 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import Annotated, Any, Literal
 
+import httpx
 from fastapi import FastAPI, Query, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
@@ -15,6 +16,8 @@ from .config import CredentialSource, Settings, TokenSource
 from .database import Database
 from .errors import ServiceError
 from .mail import MailService
+from .mail_workspace import MailWorkspace, aggregate_count
+from .mail_workspace_models import WorkspaceCapture, WorkspaceQuery
 from .models import (
     TIMEZONE,
     CaptureInput,
@@ -34,6 +37,8 @@ from .models import (
     TaskStatus,
     utc_now,
 )
+from .planning import Planning
+from .planning_routes import attach_planning_routes
 from .providers.base import DraftResult, MailProvider, ProviderHTTP
 from .providers.gmail import GmailProvider
 from .providers.graph import GraphProvider
@@ -82,21 +87,27 @@ def default_providers(settings: Settings) -> dict[ProviderName, MailProvider]:
 
 
 def create_app(
-    settings: Settings | None = None, *, providers: dict[ProviderName, MailProvider] | None = None
+    settings: Settings | None = None,
+    *,
+    providers: dict[ProviderName, MailProvider] | None = None,
+    mail_workspace_client: httpx.Client | None = None,
 ) -> FastAPI:
     configuration = settings or Settings.from_env()
     database = Database(configuration.data_dir)
     records = Records(database)
     agent_runs = AgentRuns(database)
-    adapters = default_providers(configuration)
+    workspace_selected = configuration.mail_workspace_url is not None
+    adapters = {} if workspace_selected else default_providers(configuration)
     defaults = list(adapters.values())
-    if providers:
+    if providers and not workspace_selected:
         adapters.update(providers)
     mail = MailService(database, records, adapters)
+    mail_workspace = MailWorkspace(configuration, records, client=mail_workspace_client)
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         yield
+        mail_workspace.close()
         for adapter in defaults:
             if isinstance(adapter, ProviderHTTP):
                 adapter.close()
@@ -133,16 +144,27 @@ def create_app(
 
     @app.get("/v1/status")
     def status() -> dict[str, Any]:
-        states = mail.statuses()
-        configured = any(provider.configured for provider in states)
+        workspace = mail_workspace.status() if workspace_selected else None
+        states = [] if workspace_selected else mail.statuses()
+        configured = (
+            bool(workspace and workspace["reachable"])
+            if workspace_selected
+            else any(provider.configured for provider in states)
+        )
         return {
             "version": __version__,
             "timezone": TIMEZONE,
             "providers": states,
+            "mail_source": "workspace" if workspace_selected else "basic",
+            "mail_workspace": workspace,
             "capabilities": {
                 "mail_read": configured,
-                "mail_draft": configured and configuration.mail_draft_enabled,
-                "mail_archive": configured and configuration.mail_archive_enabled,
+                "mail_draft": (
+                    not workspace_selected and configured and configuration.mail_draft_enabled
+                ),
+                "mail_archive": (
+                    not workspace_selected and configured and configuration.mail_archive_enabled
+                ),
                 "agent_supervision": True,
             },
         }
@@ -150,19 +172,32 @@ def create_app(
     def overview_data() -> dict[str, Any]:
         now = utc_now()
         tasks = [task for task in records.tasks() if task.status not in {"done", "cancelled"}]
+        workspace = mail_workspace.status() if workspace_selected else None
         return {
             "timezone": TIMEZONE,
             "as_of": now,
+            "mail_source": "workspace" if workspace_selected else "basic",
+            "mail_workspace": workspace,
             "counts": {
                 "open": len(tasks),
                 "overdue": sum(bool(task.due_at and task.due_at < now) for task in tasks),
-                "urgent_mail": mail.urgent_count(),
+                "urgent_mail": (
+                    aggregate_count(workspace, "porPrioridad", "alta")
+                    if workspace is not None
+                    else mail.urgent_count()
+                ),
                 "waiting_review": sum(task.status == "waiting" for task in tasks),
             },
             "priorities": tasks[:10],
             "recent_checkins": records.checkins()[:7],
-            "providers": mail.statuses(),
+            "providers": [] if workspace_selected else mail.statuses(),
         }
+
+    def require_basic_mail() -> None:
+        if workspace_selected:
+            raise ServiceError(
+                409, "El correo se gestiona en el espacio de correo original; use esa fuente."
+            )
 
     @app.get("/v1/overview")
     def overview() -> dict[str, Any]:
@@ -188,6 +223,8 @@ def create_app(
 
     @app.post("/v1/tasks", status_code=201)
     def create_task(payload: TaskCreate) -> Task:
+        if payload.source_type == "mail":
+            require_basic_mail()
         return records.create_task(payload)
 
     @app.patch("/v1/tasks/{identifier}")
@@ -205,34 +242,53 @@ def create_app(
         limit: Annotated[int, Query(ge=1, le=50)] = 50,
         offset: Annotated[int, Query(ge=0, le=100_000)] = 0,
     ) -> MailThreadPage:
+        require_basic_mail()
         return mail.threads(q, category, limit=limit, offset=offset)
+
+    @app.get("/v1/mail-workspace/status")
+    def workspace_status() -> dict[str, Any]:
+        return mail_workspace.status()
+
+    @app.post("/v1/mail-workspace/query")
+    def workspace_query(payload: WorkspaceQuery) -> dict[str, Any]:
+        return mail_workspace.query(payload.action, payload.params)
+
+    @app.post("/v1/mail-workspace/tasks", status_code=201)
+    def workspace_capture(payload: WorkspaceCapture) -> Task:
+        return mail_workspace.capture(payload)
 
     @app.post("/v1/mail/sync")
     def sync_mail(payload: SyncInput) -> dict[str, str | int]:
+        require_basic_mail()
         return {"count": mail.sync(payload.provider), "provider": payload.provider}
 
     @app.patch("/v1/mail/threads/{identifier}")
     def categorize(identifier: str, payload: CategorizeInput) -> MailThread:
+        require_basic_mail()
         return mail.categorize(identifier, payload.category)
 
     @app.post("/v1/mail/threads/{identifier}/task")
     def capture(identifier: str, payload: CaptureInput) -> Task:
+        require_basic_mail()
         return mail.capture(identifier, payload)
 
     @app.post("/v1/mail/threads/{identifier}/draft")
     def draft(identifier: str, payload: DraftInput) -> DraftResult:
+        require_basic_mail()
         if not configuration.mail_draft_enabled:
             raise ServiceError(403, "El operador no habilitó la creación de borradores.")
         return mail.draft(identifier, payload.body)
 
     @app.post("/v1/mail/threads/{identifier}/archive")
     def archive(identifier: str, payload: ConfirmInput) -> dict[str, str | bool]:
+        require_basic_mail()
         if not configuration.mail_archive_enabled:
             raise ServiceError(403, "El operador no habilitó el archivo de correos.")
         return mail.archive(identifier)
 
     @app.post("/v1/mail/actions/{action_id}/undo")
     def undo(action_id: str, payload: ConfirmInput) -> dict[str, bool]:
+        require_basic_mail()
         if not configuration.mail_archive_enabled:
             raise ServiceError(403, "El operador no habilitó el archivo de correos.")
         return mail.undo(action_id)
@@ -259,6 +315,20 @@ def create_app(
             heading,
             f"Abiertos: {data['counts']['open']}. Vencidos: {data['counts']['overdue']}.",
         ]
+        if workspace_selected:
+            workspace = data["mail_workspace"]
+            if workspace["reachable"]:
+                parts = []
+                for group, key, label in (
+                    ("porEstado", "debo_respuesta", "por responder"),
+                    ("porEstado", "esperando_respuesta", "esperando respuesta"),
+                    ("porPrioridad", "alta", "de prioridad alta"),
+                ):
+                    count = aggregate_count(workspace, group, key)
+                    parts.append(f"{count if count is not None else 'Sin verificar'} {label}")
+                lines.append("Correo original: " + "; ".join(parts) + ".")
+            else:
+                lines.append("Espacio de correo original no disponible; pendientes sin verificar.")
         lines += [f"- {task.title} ({TASK_STATUS_LABELS[task.status]})" for task in tasks]
         if not tasks:
             lines.append("No hay compromisos abiertos registrados.")
@@ -270,4 +340,5 @@ def create_app(
             source_ids.append(checkins[0].id)
         return {"text": "\n".join(lines), "generated_at": data["as_of"], "source_ids": source_ids}
 
+    attach_planning_routes(app, Planning(database, records, mail_workspace.status))
     return app

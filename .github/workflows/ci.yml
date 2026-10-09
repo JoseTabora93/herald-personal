@@ -93,7 +93,7 @@ jobs:
       - name: Runtime setup
         run: |
           python scripts/test_personal_runtime.py
-          python scripts/test_install_personal_macos.py
+          python -m pytest scripts/test_install_personal_macos.py scripts/test_personal_job_wrappers.py -q
 
   secrets:
     name: Secret scan

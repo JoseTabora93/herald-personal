@@ -30,19 +30,21 @@ En macOS, después de preparar el entorno, instala el servicio con `python3 scri
 
 ## Funciones
 
-- **Hoy:** prioridades, vencimientos, estado de correo y resumen basado en registros.
-- **Correo:** sincronización incremental Microsoft 365/Gmail, búsqueda, clasificación y conversión idempotente en compromiso. El contenido se muestra como texto.
+- **Hoy:** plan diario persistido, prioridades, vencimientos y fuentes con fecha de actualización. Prepararlo es una acción explícita o un job programado; abrir una pestaña no invoca un modelo.
+- **Correo:** integra el workspace original mediante una vista nativa aislada. Conserva navegación, borradores y claves `MAIL-n`; Hermes consulta su estado y captura compromisos sin duplicar la autoridad del buzón. Sin workspace configurado, siguen disponibles los adaptadores Microsoft 365/Gmail.
 - **Compromisos:** estado, prioridad, proyecto, fecha, revisiones y auditoría; una edición antigua no sobrescribe otra nueva.
 - **Diario:** una entrada por fecha de Tegucigalpa, con avances, pendientes y siguiente paso.
-- **Desarrollo:** ejecuciones e intentos con estado, código de salida y hashes de evidencia. Terminar un proceso no marca el trabajo como verificado.
+- **Desarrollo:** observación de sesiones existentes de Claude Code y OpenCode, con estados, frescura y señales de atención. Los intentos supervisados conservan además código de salida y hashes de evidencia. Ninguno se presenta como verificado sin revisión.
 
 ## Configuración y alcance
 
 Las credenciales permanecen en el servicio y el proceso principal de Electron. Microsoft 365 admite renovación silenciosa MSAL con caché privada; Gmail acepta un archivo de token mantenido por el cliente OAuth del operador. El repositorio no contiene cuentas conectadas ni credenciales.
 
-La sincronización procesa un lote acotado por llamada y conserva un cursor para continuar. Los resúmenes reflejan los mensajes sincronizados. La vista de correo pagina los resultados y limita el tamaño de cada respuesta; conserva íntegro el texto almacenado de cada mensaje. El archivo y los borradores están desactivados de forma predeterminada. No existen funciones de envío o borrado de correo.
+Cuando se configura `HERALD_MAIL_WORKSPACE_URL`, el workspace original mantiene la sincronización y las operaciones de correo. Sus controles conservan sus permisos propios. El puente Hermes solo permite consultas y captura de compromisos; no envía, clasifica ni archiva a través de ese puente. La vista nativa no recibe el preload ni credenciales del shell.
 
-Las skills y perfiles concretos se describen en [Hermes](docs/personal/HERMES.md); los límites de la API en [servicio personal](services/personal/README.md). Las rutinas de WhatsApp se entregan pausadas y requieren canal y destino verificados. Para continuidad cuando la Mac está apagada, consultar [despliegue en VPS](deploy/personal/README.md).
+Los adaptadores anteriores se bloquean mientras el workspace es la autoridad. Sin workspace, su sincronización es incremental y acotada, los resúmenes reflejan únicamente mensajes sincronizados y las escrituras requieren capacidades explícitas. No existe herramienta MCP para enviar o borrar.
+
+Las skills y perfiles se describen en [Hermes](docs/personal/HERMES.md); los límites de la API en [servicio personal](services/personal/README.md). La [receta cron](integrations/hermes-personal/routines/README.md) contiene un plan a las 08:00 diarias y un observador cada cinco minutos, en America/Tegucigalpa. Las plantillas se instalan pausadas y con el modelo desactivado. El operador activa su instalación después de validarla. WhatsApp requiere un canal y destinatario verificados. Para continuidad cuando la Mac está apagada, consultar [despliegue en VPS](deploy/personal/README.md).
 
 ## Verificación
 

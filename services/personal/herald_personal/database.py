@@ -67,6 +67,22 @@ CREATE TABLE agent_run_events (
 );
 """
 
+PLANNING_SCHEMA = """
+CREATE TABLE agent_observations (
+ observer_id TEXT PRIMARY KEY, revision INTEGER NOT NULL CHECK(revision>0),
+ payload_hash TEXT NOT NULL, payload TEXT NOT NULL, observed_at TEXT NOT NULL
+);
+CREATE TABLE daily_plans (
+ date TEXT PRIMARY KEY, revision INTEGER NOT NULL CHECK(revision>0),
+ payload TEXT NOT NULL, updated_at TEXT NOT NULL
+);
+CREATE TABLE daily_plan_claims (
+ date TEXT NOT NULL REFERENCES daily_plans(date), kind TEXT NOT NULL,
+ owner TEXT NOT NULL, attempt_id TEXT NOT NULL, claimed_at TEXT NOT NULL,
+ PRIMARY KEY(date,kind)
+);
+"""
+
 
 class Database:
     def __init__(self, directory: Path):
@@ -80,7 +96,7 @@ class Database:
         with self.connection() as connection:
             connection.execute("PRAGMA journal_mode=WAL")
             version = connection.execute("PRAGMA user_version").fetchone()[0]
-            if version > 2:
+            if version > 3:
                 raise ValueError("La base de datos requiere una versión más reciente del servicio.")
             if version == 0:
                 connection.executescript(
@@ -89,6 +105,10 @@ class Database:
             if version < 2:
                 connection.executescript(
                     "BEGIN IMMEDIATE;\n" + AGENT_SCHEMA + "PRAGMA user_version=2; COMMIT;"
+                )
+            if version < 3:
+                connection.executescript(
+                    "BEGIN IMMEDIATE;\n" + PLANNING_SCHEMA + "PRAGMA user_version=3; COMMIT;"
                 )
 
     @contextmanager

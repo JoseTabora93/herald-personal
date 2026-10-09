@@ -35,7 +35,12 @@ class Records:
     def __init__(self, database: Database):
         self.db = database
 
-    def create_task(self, payload: TaskCreate) -> Task:
+    def create_task(self, payload: TaskCreate, *, verified_mail_source: str | None = None) -> Task:
+        external_mail = (
+            payload.source_type == "mail"
+            and verified_mail_source is not None
+            and payload.source_id == verified_mail_source
+        )
         values = payload.model_dump(exclude={"idempotency_key"})
         payload_hash = digest(values)
         with self.db.transaction() as connection:
@@ -47,7 +52,7 @@ class Records:
                     if replay["payload_hash"] != payload_hash:
                         raise ServiceError(409, "La clave de idempotencia ya tiene otro contenido.")
                     return Task.model_validate_json(replay["result"])
-            if payload.source_type == "mail":
+            if payload.source_type == "mail" and not external_mail:
                 mail = connection.execute(
                     "SELECT id FROM mail WHERE id=?", (payload.source_id,)
                 ).fetchone()
@@ -81,7 +86,7 @@ class Records:
                     "INSERT INTO task_events VALUES (?,?,?,?,?)",
                     (str(uuid4()), identifier, "created", now, json_text(values)),
                 )
-                if payload.source_type == "mail":
+                if payload.source_type == "mail" and not external_mail:
                     connection.execute(
                         "UPDATE mail SET task_id=? WHERE id=?", (identifier, payload.source_id)
                     )

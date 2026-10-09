@@ -98,9 +98,11 @@ def test_v1_database_migrates_without_losing_human_records(tmp_path):
         connection.commit()
     database = Database(tmp_path)
     with database.connection() as connection:
-        assert connection.execute("PRAGMA user_version").fetchone()[0] == 2
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == 3
         assert connection.execute("SELECT id FROM checkins").fetchone()[0] == "checkin-old"
         assert connection.execute("SELECT COUNT(*) FROM agent_runs").fetchone()[0] == 0
+        for table in ("daily_plans", "daily_plan_claims", "agent_observations"):
+            assert connection.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0] == 0
 
 
 def test_provider_invalid_json_and_foreign_redirects_are_errors_without_writes():

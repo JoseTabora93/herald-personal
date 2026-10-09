@@ -154,6 +154,22 @@ def test_dry_run_describes_private_install_without_creating_files_or_processes(
     assert "test-private-api-token" not in json.dumps(result)
 
 
+def test_workspace_mail_settings_preserve_private_credential_boundary(source, destination):
+    module = load_installer()
+    config = source / ".runtime/private/mail-settings.json"
+    values = json.loads(config.read_text())
+    credential = source / ".runtime/private/mail-workspace-token"
+    private_write(credential, "fixture-workspace-token")
+    values.update(HERALD_MAIL_WORKSPACE_URL="http://127.0.0.1:8097",
+                  HERALD_MAIL_WORKSPACE_TOKEN_FILE=str(credential))
+    private_write(config, json.dumps(values))
+    result, copies = module.mail_settings(source, destination)
+    assert result["HERALD_MAIL_WORKSPACE_URL"] == "http://127.0.0.1:8097"
+    assert result["HERALD_MAIL_WORKSPACE_TOKEN_FILE"] == str(destination / "private/mail-workspace-token")
+    assert (credential, destination / "private/mail-workspace-token") in copies
+    assert result["HERALD_MICROSOFT365_CLIENT_ID"] == values["HERALD_MICROSOFT365_CLIENT_ID"]
+
+
 def test_install_copies_owned_runtime_and_keeps_all_runtime_paths_outside_documents(
     source, destination, host
 ):
