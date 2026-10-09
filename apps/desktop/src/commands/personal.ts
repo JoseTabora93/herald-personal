@@ -72,6 +72,9 @@ const commands: readonly OsCommand[] = [
     }
   },
   {
+    id: 'personal.development.history', title: 'Mostrar histórico de sesiones', description: 'Cambiar entre sesiones activas y el inventario histórico.', tier: 'read', args: [{ name: 'show', type: 'boolean', required: true, description: 'Mostrar histórico' }], run: ({ show }) => { personal.showObservationHistory(Boolean(show)); return ok(show ? 'Histórico visible.' : 'Sesiones activas visibles.') }
+  },
+  {
     id: 'personal.development.refresh', title: 'Actualizar ejecuciones de desarrollo', description: 'Leer las ejecuciones reales y su evidencia disponible.', tier: 'read', args: [],
     run: async () => { await Promise.all([personal.loadAgentRuns(), personal.loadAgentObservations()]); const state = $personal.get(); const error = state.agentObservationsError || state.agentRunsError; return error ? fail(error) : ok('Observaciones y ejecuciones actualizadas. La revisión del resultado se indica por separado.') }
   },

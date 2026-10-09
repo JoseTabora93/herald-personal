@@ -21,9 +21,10 @@ export function DevelopmentPanel() {
   const linkedTasks = data.tasks.filter(task => task.source_type === 'agent' || task.agent_task_id)
   useEffect(() => {
     if (!active) return
-    const refresh = () => { void Promise.all([personal.loadAgentObservations(), personal.loadAgentRuns()]) }
+    const refresh = () => { if (!personal.state.get().agentObservationsLoading) void personal.loadAgentObservations() }
+    void personal.loadAgentRuns()
     refresh()
-    const timer = window.setInterval(refresh, 15_000)
+    const timer = window.setInterval(refresh, 3_000)
     return () => window.clearInterval(timer)
   }, [active, focus.tick])
   return <div className="flex flex-col gap-5">

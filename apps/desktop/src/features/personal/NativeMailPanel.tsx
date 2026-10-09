@@ -1,3 +1,5 @@
+import { MailAttachment, SignaturePreview } from './MailAssets.tsx'
+import { mailAssets } from './mail-assets.ts'
 import { useStore } from '@nanostores/react'
 import { IconArrowLeft, IconArrowRight, IconChecklist, IconEdit, IconMail, IconMessageCircle, IconPaperclip, IconRefresh, IconSearch, IconX } from '@tabler/icons-react'
 import { useEffect, useState } from 'react'
@@ -57,6 +59,7 @@ function ThreadRow({ item }: { item: MailItem }) {
 function ThreadDetail() {
   const state = useStore(nativeMail.state)
   const action = usePersonalAction()
+  useEffect(() => { mailAssets.clear(); return () => mailAssets.clear() }, [state.selectedClave])
   if (state.detailLoading) return <div role="status" className="p-6 text-[13px] text-fg-3">Abriendo {state.selectedClave}…</div>
   if (state.detailError) return <div className="p-5"><ActionFeedback error={state.detailError} /><GlassButton className="mt-3" onClick={() => void action.run('personal.nativeMail.select', { clave: state.selectedClave })}>Reintentar hilo</GlassButton></div>
   const thread = state.thread
@@ -95,7 +98,7 @@ function ThreadDetail() {
         <div className="flex flex-wrap justify-between gap-2"><p className="text-[12px] font-medium">{person(message.de) || 'Remitente no disponible'}</p><p className="text-[11px] text-fg-3">{day(message.fecha)}</p></div>
         <details className="mt-1 text-[11px] text-fg-3"><summary className="cursor-pointer">Destinatarios</summary><p className="mt-1 break-words">Para: {records(message.para).map(person).join('; ') || '—'}</p><p className="break-words">CC: {records(message.cc).map(person).join('; ') || '—'}</p></details>
         {message.errorCuerpo ? <p role="alert" className="mt-3 text-[12px] text-warn">No se pudo cargar el cuerpo de este mensaje. Reintenta el hilo.</p> : <div className="mt-4 whitespace-pre-wrap break-words text-[13px] leading-relaxed text-fg-2">{txt(message.cuerpoTexto) || txt(message.vistaPrevia) || 'Mensaje sin texto disponible.'}</div>}
-        {records(message.adjuntos).length > 0 && <ul className="mt-3 space-y-1 border-t border-line pt-3 text-[11px] text-fg-3">{records(message.adjuntos).map((file, i) => <li key={i} className="flex items-center gap-2"><IconPaperclip size={13} />{txt(file.name || file.nombre)} {file.size ? `· ${Math.ceil(Number(file.size) / 1024)} KB` : ''}</li>)}</ul>}
+        {records(message.adjuntos).length > 0 && <ul className="mt-3 space-y-1 border-t border-line pt-3 text-[11px] text-fg-3">{records(message.adjuntos).map((file, i) => file.id ? <MailAttachment key={txt(file.id)} asset={{kind:'attachment', clave:item.clave, message_id:txt(message.id), attachment_id:txt(file.id)}} name={txt(file.nombre || file.name)} mime={txt(file.tipo || file.contentType)} size={Number(file.tamano || file.size || 0)} inline={file.enLinea === true} /> : <li key={i}>{txt(file.nombre || file.name)} · Descarga no disponible</li>)}</ul>}
         {message.errorAdjuntos ? <p className="mt-2 text-[11px] text-warn">No se pudieron consultar los adjuntos.</p> : null}
       </section>)}
     </div>
@@ -128,6 +131,7 @@ function Composer() {
     <div className="mt-4 flex items-center justify-between"><p className="text-[11px] text-fg-3">Admite Markdown: **negrita**, listas y enlaces.</p><button className="text-[11px] text-accent-strong" type="button" onClick={() => setPreview(value => !value)}>{preview ? 'Editar texto' : 'Vista previa'}</button></div>
     {preview ? <div className="prose prose-sm mt-2 min-h-56 rounded-lg border border-line p-4 text-fg-2"><ReactMarkdown remarkPlugins={[remarkGfm]} components={{ img: () => null, a: ({ children }) => <span className="underline">{children}</span> }}>{c.cuerpoMd || 'Borrador vacío'}</ReactMarkdown></div> : <textarea aria-label="Texto del borrador" className={`${FIELD_CLASS} mt-2 min-h-64 resize-y leading-relaxed`} maxLength={50000} value={c.cuerpoMd} disabled={busy} onChange={e => nativeMail.editCompose({ cuerpoMd: e.target.value })} />}
     <label className="mt-3 flex items-center gap-2 text-[12px] text-fg-2"><input type="checkbox" checked={c.incluirFirma} disabled={busy} onChange={e => nativeMail.editCompose({ incluirFirma: e.target.checked })} />Incluir mi firma configurada al enviar</label>
+    {c.incluirFirma && <SignaturePreview composeId={c.id} />}
     {c.adjuntos?.length > 0 && <p className="mt-2 flex items-center gap-1 text-[11px] text-fg-3"><IconPaperclip size={13} />{c.adjuntos.map(f => txt(f.nombre || f.name)).join(', ')}</p>}
     <div className="mt-4 flex flex-wrap gap-2"><GlassButton variant="primary" disabled={busy || Boolean(recipientError)} onClick={() => void action.run('personal.nativeMail.save')}>Guardar borrador</GlassButton><GlassButton disabled={busy || state.dirty || Boolean(recipientError)} onClick={() => void action.run('personal.nativeMail.legacy')}>Adjuntos, Outlook y envío</GlassButton></div>
     <p className="mt-2 text-[11px] leading-relaxed text-fg-3">El envío se revisa en la vista original con sus destinatarios, firma y ventana de deshacer. El mismo borrador te acompaña.</p>

@@ -66,7 +66,7 @@ import {
   type WmState
 } from '../shared/ipc.ts'
 import type { BrandingPatch, BrandingView } from '../shared/branding.ts'
-import type { PersonalRequest } from '../shared/personal.ts'
+import type { PersonalRequest, PersonalMailAsset } from '../shared/personal.ts'
 import type { ModelId, ModelProgress, ModelStatus } from '../shared/canvas/models.ts'
 import type { MenuExtensions } from '../shared/menu-extensions.ts'
 import type { PluginMethod, PluginView } from '../shared/plugins.ts'
@@ -90,6 +90,7 @@ const subscribe = <T,>(channel: string, listener: (payload: T) => void): Unsubsc
 /** The whole capability surface the renderer gets. Keep it narrow and typed. */
 const api = {
   personal: {
+    mailAsset: (ref: PersonalMailAsset, intent: 'preview' | 'download', name?: string): Promise<{ dataUrl?: string; cancelled?: boolean }> => ipcRenderer.invoke(IPC.personalMailAsset, ref, intent, name),
     request: <T,>(request: PersonalRequest): Promise<T> => ipcRenderer.invoke(IPC.personalRequest, request),
     mailOpen: (route?: string): Promise<{ id: string; baseUrl: string }> => ipcRenderer.invoke(IPC.personalMailOpen, route),
     mailNavigate: (id: string, route: string): Promise<void> => ipcRenderer.invoke(IPC.personalMailNavigate, id, route)

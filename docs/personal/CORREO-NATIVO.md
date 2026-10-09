@@ -67,3 +67,11 @@ No debe ejecutarse si esos puertos pertenecen a otro proceso. Sus archivos está
 `.runtime/qa-native-mail`, fuera de Git. El guion comprueba la bandeja nativa sin guest,
 paginación, búsqueda, contenido no ejecutable, clasificación, fallo de guardado, persistencia
 tras reinicio, continuidad del borrador, propuestas, compromiso y ausencia de envíos.
+
+## Imágenes, descargas y firma (personal.5)
+
+Los adjuntos incluyen una identidad estable del mensaje y del archivo. Las imágenes en línea se enumeran incluso si Microsoft 365 informa `hasAttachments=false`. El lector ofrece **Ver imagen** y **Descargar imagen/adjunto**. La vista previa acepta PNG/JPEG/GIF/WebP (máximo 6 MB, con firma binaria validada); el diálogo nativo permite elegir el destino de la descarga (máximo 20 MB). Cancelar no descarga ni crea un archivo. No se abren automáticamente los archivos descargados ni se solicitan imágenes remotas de terceros.
+
+La firma configurada en el servicio original aparece bajo el texto al responder cuando está marcada **Incluir mi firma configurada al enviar**. El guardado conserva esa decisión. La imagen sigue agregándose una vez por el servicio original al preparar la salida a Outlook o el envío; no se incrusta una segunda copia en el Markdown local. Una firma ausente o desconectada se muestra como error visible.
+
+La API autenticada `POST /v1/mail-workspace/asset` acepta exclusivamente `{kind:"signature"}` o `{kind:"attachment",clave,message_id,attachment_id}`. Obtiene binarios mediante GET de las rutas fijas `/api/firma-imagen` y `/api/mail-attachment` del servicio configurado. La segunda ruta exige pertenencia mensaje-hilo y adjunto-mensaje. No acepta URL o ruta de disco del solicitante ni reenvía cookies/capacidades del navegador. El destino del archivo solo puede venir del diálogo del proceso principal.

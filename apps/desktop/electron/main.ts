@@ -1,11 +1,12 @@
-import { app, BrowserWindow, globalShortcut, ipcMain, Notification, protocol, shell } from 'electron'
+import { app, BrowserWindow, dialog, globalShortcut, ipcMain, Notification, protocol, shell } from 'electron'
 import os from 'node:os'
 import fs from 'node:fs'
 import path from 'node:path'
 import { type EnvInfo, type HeraldOSPrefs, IPC, type RestRequest, type ShellCommand, type WindowState } from '../shared/ipc.ts'
 import { BackendManager } from './backend/manager.ts'
 import { personalEnvironment, requestPersonal } from './personal/client.ts'
-import type { PersonalMailWorkspaceStatus, PersonalRequest } from '../shared/personal.ts'
+import type { PersonalMailWorkspaceStatus, PersonalRequest, PersonalMailAsset } from '../shared/personal.ts'
+import { readMailAsset, previewMailAsset, saveMailAsset } from './personal/mail-assets.ts'
 import { PlanLauncher } from './personal/plan-launch.ts'
 import { forgetInheritedSession } from './backend/session-env.ts'
 import { CrashWatcher } from './crash/watch.ts'
@@ -226,6 +227,25 @@ function registerCoreIpc(): void {
       throw new Error('Solicitud personal no permitida.')
     }
     return requestPersonal(request, await personalEnvironment(path.join(personalInstall, 'connection.json')))
+  })
+  let mailAssetBusy = false
+  ipcMain.handle(IPC.personalMailAsset, async (event, ref: PersonalMailAsset, intent: string, name?: string) => {
+    const owner = BrowserWindow.fromWebContents(event.sender)
+    if (event.senderFrame !== event.sender.mainFrame || !owner || !isShellPage(event.senderFrame.url) || !['preview', 'download'].includes(intent) || (name !== undefined && (typeof name !== 'string' || name.length > 500))) throw new Error('Solicitud de archivo no permitida.')
+    const env = await personalEnvironment(path.join(personalInstall, 'connection.json'))
+    if (intent === 'preview') return { dataUrl: previewMailAsset(await readMailAsset(ref, env)) }
+    if (mailAssetBusy) throw new Error('Ya hay una descarga en curso.')
+    mailAssetBusy = true
+    try {
+      return await saveMailAsset(ref, name || 'adjunto', async suggested => {
+        const result = await dialog.showSaveDialog(owner, { title: 'Guardar adjunto de correo', defaultPath: path.join(app.getPath('downloads'), suggested) })
+        return result.canceled ? undefined : result.filePath
+      }, value => readMailAsset(value, env), async (target, bytes) => {
+        // O_NOFOLLOW avoids following a substituted symlink at the selected destination.
+        const handle = await fs.promises.open(target, fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_TRUNC | (fs.constants.O_NOFOLLOW || 0), 0o600)
+        try { await handle.writeFile(bytes); await handle.sync() } finally { await handle.close() }
+      })
+    } finally { mailAssetBusy = false }
   })
   ipcMain.handle(IPC.backendLogTail, (_event, lines: number) => [...logTail(lines), ...backend.getState().logTail])
 

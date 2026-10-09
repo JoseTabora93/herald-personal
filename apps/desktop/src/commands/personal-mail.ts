@@ -1,9 +1,18 @@
+import type { PersonalMailAsset } from '../../shared/personal.ts'
+import { mailAssets } from '../features/personal/mail-assets.ts'
 import { mailEditorIsOpen, MAIL_WORKSPACE_VIEWS } from '../features/personal/mail-workspace.ts'
 import type { MailFilters } from '../features/personal/native-mail.ts'
 import { nativeMail, mailWorkspace } from '../store/personal.ts'
 import { ok, fail, type OsCommand } from '../store/os-commands.ts'
 
 export const nativeMailCommands: readonly OsCommand[] = [
+  { id: 'personal.nativeMail.asset', title: 'Abrir o descargar imagen y adjunto', description: 'Leer un archivo del correo seleccionado.', tier: 'act', hidden: true, args: [{ name: 'ref', type: 'string', required: true, description: 'Referencia de archivo' }, { name: 'intent', type: 'string', enum: ['preview', 'download'], required: true, description: 'Vista previa o descarga' }, { name: 'name', type: 'string', description: 'Nombre sugerido' }], run: async ({ref, intent, name}, context) => {
+    if (context.source !== 'ui') return fail('Abre el archivo desde el correo.')
+    const asset = JSON.parse(String(ref)) as PersonalMailAsset
+    if (intent === 'preview') { await mailAssets.preview(asset); return ok('Imagen abierta.') }
+    const result = await mailAssets.download(asset, String(name || 'adjunto'))
+    return ok(result.cancelled ? 'Descarga cancelada.' : 'Archivo guardado.')
+  } },
   { id: 'personal.nativeMail.select', title: 'Leer hilo de correo', description: 'Leer sin cambiar el buzón ni marcarlo como visto.', tier: 'read', args: [{ name: 'clave', type: 'string', required: true, description: 'Clave MAIL' }, { name: 'limit', type: 'number', description: 'Mensajes recientes, hasta 25' }],
     run: async ({ clave, limit }) => { await nativeMail.select(String(clave), Math.min(25, Math.max(1, Number(limit ?? 10)))); const error = nativeMail.state.get().detailError; return error ? fail(error) : ok('Hilo abierto.') } },
   { id: 'personal.nativeMail.filter', title: 'Filtrar correo', description: 'Aplicar filtros a la fuente de correo existente.', tier: 'read', hidden: true, args: [{ name: 'filters', type: 'string', required: true, description: 'Filtros JSON' }],

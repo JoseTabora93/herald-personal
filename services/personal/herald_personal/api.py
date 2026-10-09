@@ -1,21 +1,24 @@
 """The one authenticated personal API shared by desktop and Hermes tools."""
 
+import asyncio
 import sqlite3
 from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 from typing import Annotated, Any, Literal
 
 import httpx
 from fastapi import FastAPI, Query, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 
 from . import __version__
 from .agents import AgentRun, AgentRuns
 from .config import CredentialSource, Settings, TokenSource
 from .database import Database
 from .errors import ServiceError
+from .live_observer import LiveObserver
 from .mail import MailService
+from .mail_assets import MailAsset, read_asset
 from .mail_workspace import MailWorkspace, aggregate_count
 from .mail_workspace_models import WorkspaceCapture, WorkspaceQuery
 from .models import (
@@ -104,9 +107,18 @@ def create_app(
     mail = MailService(database, records, adapters)
     mail_workspace = MailWorkspace(configuration, records, client=mail_workspace_client)
 
+    live_planning = Planning(database, records, mail_workspace.status)
+    monitor = LiveObserver(configuration.observer_config_file, live_planning)
+
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
-        yield
+        observer_task = asyncio.create_task(monitor.run())
+        try:
+            yield
+        finally:
+            observer_task.cancel()
+            with suppress(asyncio.CancelledError):
+                await observer_task
         mail_workspace.close()
         for adapter in defaults:
             if isinstance(adapter, ProviderHTTP):
@@ -253,6 +265,19 @@ def create_app(
     def workspace_query(payload: WorkspaceQuery) -> dict[str, Any]:
         return mail_workspace.query(payload.action, payload.params)
 
+    @app.post("/v1/mail-workspace/asset")
+    def mail_asset(payload: MailAsset) -> Response:
+        body, mime, name = read_asset(mail_workspace, payload)
+        return Response(
+            body,
+            media_type=mime,
+            headers={
+                "x-mail-filename": name,
+                "Cache-Control": "no-store",
+                "X-Content-Type-Options": "nosniff",
+            },
+        )
+
     @app.post("/v1/mail-workspace/local")
     def workspace_local(payload: WorkspaceQuery) -> dict[str, Any]:
         return mail_workspace.local(payload.action, payload.params)
@@ -344,5 +369,5 @@ def create_app(
             source_ids.append(checkins[0].id)
         return {"text": "\n".join(lines), "generated_at": data["as_of"], "source_ids": source_ids}
 
-    attach_planning_routes(app, Planning(database, records, mail_workspace.status))
+    attach_planning_routes(app, live_planning, monitor)
     return app

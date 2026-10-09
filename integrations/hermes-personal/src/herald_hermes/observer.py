@@ -59,7 +59,7 @@ def _row(agent, session, workspace, status, source, now, signals, *, source_time
         "evidence_source": source,
         "confidence": "low" if status == "unknown" else "high",
         "source_updated_at": source_time,
-        "stale_after_seconds": 600,
+        "stale_after_seconds": 30,
         "signals": signals[:8],
         "verification": "not_run",
     }
@@ -110,6 +110,16 @@ def collect_claude(executable, workspaces, observed_at, *, run=bounded_run):
 def _data(payload, expected):
     value = payload.get("data") if isinstance(payload, dict) else None
     return value if isinstance(value, expected) else None
+
+
+def _source_time(value):
+    value = value.get("updated") if isinstance(value, dict) else None
+    try:
+        if isinstance(value, (int, float)) and value > 0:
+            return datetime.fromtimestamp(value / 1000, timezone.utc).isoformat()
+    except (ValueError, OverflowError, OSError):
+        pass
+    return None
 
 
 def parse_opencode_sessions(
@@ -165,7 +175,8 @@ def parse_opencode_sessions(
         # remain open after a turn, so an inactive snapshot is idle, never done.
         output.append(
             _row(
-                "opencode", sid, workspace, state, "opencode_api", observed_at, signals
+                "opencode", sid, workspace, state, "opencode_api", observed_at, signals,
+                source_time=_source_time(item.get("time")),
             )
         )
     return output
@@ -327,6 +338,19 @@ def collect_opencode(service_file, workspaces, observed_at):
     )
 
 
+def reconcile_observations(previous, rows, successful_agents, now):
+    """Absence only proves closure in a complete live CLI inventory, not a recent page."""
+    known = {row["observer_id"] for row in rows}
+    closed = []
+    for old in previous:
+        if (old["agent"] == "claude" and "claude" in successful_agents
+                and old["observer_id"] not in known and old["status"] != "ended"):
+            row = _row("claude", old["native_session_id"], old["workspace"], "ended",
+                       "claude_agents_cli", now, ["absent_from_live_inventory", "tests_not_observed"])
+            closed.append(row)
+    return closed
+
+
 def publish_observations(client, rows):
     existing = client.request("GET", "/v1/agent-observations").get("items", [])
     revisions = {x["observer_id"]: x["revision"] for x in existing}
@@ -346,7 +370,7 @@ def poll(config, client):
     if not isinstance(workspaces, dict) or not workspaces or len(workspaces) > 100:
         raise ObservationError("Configure una allowlist de workspaces del operador.")
     now = datetime.now(timezone.utc).isoformat(timespec="microseconds")
-    rows, errors = [], []
+    rows, errors, successful = [], [], []
     for agent, field, collect in (
         ("claude", "claude_executable", collect_claude),
         ("opencode", "opencode_service_file", collect_opencode),
@@ -356,8 +380,11 @@ def poll(config, client):
             continue
         try:
             rows.extend(collect(config[field], workspaces, now))
+            successful.append(agent)
         except ObservationError:
             errors.append(agent + "_unavailable")
+    previous = client.request("GET", "/v1/agent-observations").get("items", [])
+    rows += reconcile_observations(previous, rows, successful, now)
     stored = publish_observations(client, rows) if rows else []
     return {"observed": len(stored), "errors": errors, "verification": "not_run"}
 

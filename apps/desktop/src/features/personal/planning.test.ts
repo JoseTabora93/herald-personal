@@ -87,12 +87,12 @@ describe('honest planning and observation presentation', () => {
   })
 
   it('separates a session ending from independent result review', () => {
-    expect(observationPresentation({ ...observation, status: 'ended', effective_status: 'ended' })).toMatchObject({ label: 'Sesión terminó', verification: 'Resultado sin revisar' })
+    expect(observationPresentation({ ...observation, status: 'ended', effective_status: 'ended' }, Date.parse(observation.observed_at))).toMatchObject({ label: 'Sesión terminó', verification: 'Resultado sin revisar' })
   })
 
   it('identifies permissions and user input as different attention states', () => {
-    expect(observationPresentation({ ...observation, effective_status: 'waiting_permission' }).label).toBe('Espera permiso')
-    expect(observationPresentation({ ...observation, effective_status: 'waiting_input' }).label).toBe('Espera tu respuesta')
+    expect(observationPresentation({ ...observation, effective_status: 'waiting_permission' }, Date.parse(observation.observed_at)).label).toBe('Espera permiso')
+    expect(observationPresentation({ ...observation, effective_status: 'waiting_input' }, Date.parse(observation.observed_at)).label).toBe('Espera tu respuesta')
   })
 
   it('identifies deterministic recommendations and the actual model used by Hermes', () => {
@@ -108,4 +108,13 @@ describe('honest planning and observation presentation', () => {
     expect(modelErrorLabel('provider_error')).toContain('proveedor')
     expect(modelErrorLabel(null)).toBeNull()
   })
+})
+
+it('shows historical sessions only through an explicit local view preference', () => {
+  const request = vi.fn<PersonalTransport>()
+  const personal = createPersonalController(request)
+  expect(personal.state.get().observationHistory).toBe(false)
+  personal.showObservationHistory(true)
+  expect(personal.state.get().observationHistory).toBe(true)
+  expect(request).not.toHaveBeenCalled()
 })

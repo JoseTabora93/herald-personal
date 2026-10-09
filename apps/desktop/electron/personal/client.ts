@@ -81,7 +81,7 @@ function validateRequest(request: PersonalRequest): string | undefined {
   return body
 }
 
-function serviceOrigin(env: Environment): string {
+export function serviceOrigin(env: Environment): string {
   try {
     const url = new URL(env.HERALD_PERSONAL_URL || 'http://127.0.0.1:8787')
     const loopback = ['127.0.0.1', '[::1]', 'localhost'].includes(url.hostname)
@@ -91,7 +91,7 @@ function serviceOrigin(env: Environment): string {
   } catch { throw new Error('La dirección del servicio personal debe ser HTTPS o una dirección local.') }
 }
 
-async function serviceToken(env: Environment): Promise<string> {
+export async function serviceToken(env: Environment): Promise<string> {
   let token = env.HERALD_PERSONAL_TOKEN?.trim()
   if (!token && env.HERALD_PERSONAL_TOKEN_FILE) {
     try {

@@ -713,6 +713,7 @@ export const IPC = {
   backendRestart: 'herald-os:backend:restart',
   backendRest: 'herald-os:backend:rest',
   personalRequest: 'herald-os:personal:request',
+  personalMailAsset: 'herald-os:personal:mail-asset',
   personalMailOpen: 'herald-os:personal:mail-open',
   personalMailNavigate: 'herald-os:personal:mail-navigate',
   backendLogTail: 'herald-os:backend:log-tail',

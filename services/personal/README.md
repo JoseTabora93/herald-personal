@@ -193,3 +193,11 @@ The model actions run only on explicit UI requests and use a 120-second upstream
 operations retain the 15-second bound. Local actions are rate limited; writes are never retried.
 Only the preexisting service runs models or owns drafts. No cookies or UI capabilities are forged.
 The MCP read catalog remains separate. See `docs/personal/CORREO-NATIVO.md` for the transition.
+
+### Observación continua de sesiones
+
+`HERALD_OBSERVER_CONFIG=/ruta/privada/observer.json` habilita en el ciclo de vida de la API un observador local, sin modelo, cada cinco segundos después de completar la consulta anterior. El archivo es del operador, con permisos 0600; conserva la allowlist de proyectos y las fuentes del ejemplo `integrations/hermes-personal/routines/observer.example.json`. El paquete `herald_hermes` debe estar instalado junto al servicio. Si falta o falla la fuente, `/v1/agent-observations` devuelve `monitor.errors`; no inventa un estado activo.
+
+Claude se consulta con `claude agents --json`. OpenCode v2 se consulta por sus APIs de inventario, actividad y solicitudes pendientes, leyendo su `service.json` privado en cada ciclo (soporta cambios de puerto/credencial tras reiniciar OpenCode). Una lectura completa de Claude retira sesiones cerradas; una página parcial de OpenCode no demuestra cierre. La evidencia de actividad vence a los 30 segundos. El proceso no lee conversaciones ni envía instrucciones, aprueba permisos o declara pruebas exitosas. El monitor continúa con la ventana de Herald cerrada mientras el servicio y el Mac estén activos. El antiguo job de observación comparte el lock para evitar publicaciones simultáneas.
+
+Desarrollo refresca la proyección cada tres segundos, muestra primero trabajo activo y sesiones abiertas de Claude, y conserva **Mostrar histórico e inactivas** para OpenCode sin trabajo actual y observaciones anteriores. La latencia normal es de aproximadamente 5–8 segundos; una fuente lenta puede demorar más y la interfaz expone su frescura.

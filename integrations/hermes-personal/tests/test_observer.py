@@ -186,3 +186,19 @@ class ObserverTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+class LiveRegressionTests(ObserverTests):
+    def test_live_rows_expire_in_thirty_seconds(self):
+        self.assertEqual(parse_claude_sessions([self.claude()],self.scopes,NOW)[0]['stale_after_seconds'],30)
+
+    def test_successful_empty_inventory_retires_session_but_failure_does_not(self):
+        from herald_hermes.observer import reconcile_observations
+        old=parse_claude_sessions([self.claude()],self.scopes,NOW)
+        closed=reconcile_observations(old,[],['claude'],NOW)
+        self.assertEqual(closed[0]['status'],'ended')
+        self.assertEqual(closed[0]['verification'],'not_run')
+        self.assertEqual(reconcile_observations(old,[],[],NOW),[])
+
+    def test_opencode_has_actual_source_timestamp(self):
+        rows=parse_opencode_sessions({'data':[{'id':'ses_a','location':{'directory':str(self.workspace)},'time':{'updated':1791498600000}}]}, {'data':{}},None,None,self.scopes,NOW)
+        self.assertIsNotNone(rows[0]['source_updated_at'])

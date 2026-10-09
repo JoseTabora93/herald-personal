@@ -431,3 +431,9 @@ Mail bodies render as plain text. Draft previews block remote images and active 
 keeps unsaved edits on failure, rejects stale list/detail responses, verifies save readbacks and stores
 only a compose identifier for restart recovery. The OS command registry uses the native selection by
 default and reads the guest selection only while the compatibility view is active.
+
+## ADR-022 — Binarios de correo y observación continua
+
+El correo conserva su servicio original como autoridad. Herald solicita los binarios por identidad del hilo/mensaje/adjunto, con límites de tamaño y destino elegido mediante diálogo nativo. Las vistas previas son imágenes raster en memoria; no se habilita HTML de correo ni un proxy de URLs. La firma se muestra en el redactor, pero el servicio original conserva su única inserción al enviar.
+
+El inventario periódico de cinco minutos no daba una señal útil durante una sesión. El servicio personal ahora ejecuta un observador continuo opcional de metadatos cada cinco segundos, con exclusión mutua frente al job existente. Cada fuente conserva su estado de disponibilidad y el cliente expira evidencia a los treinta segundos aunque se corte la conexión. Las sesiones históricas quedan accesibles sin dominar la vista activa. No se confunde una sesión detenida con una entrega validada.

@@ -309,7 +309,9 @@ class JobRuntimeTests(unittest.TestCase):
                     "herald_hermes.observer.publish_observations", return_value=[{}]
                 ) as publish,
             ):
-                result = poll(config, mock.Mock())
+                client = mock.Mock()
+                client.request.return_value = {"items": []}
+                result = poll(config, client)
             self.assertEqual(
                 result,
                 {

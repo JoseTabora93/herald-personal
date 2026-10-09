@@ -1,5 +1,5 @@
 import { atom } from 'nanostores'
-import type { PersonalAgentObservation, PersonalAgentRun, PersonalCheckin, PersonalDailyPlan, PersonalMailPage, PersonalMailThread, PersonalOverview, PersonalProviderStatus, PersonalRequest, PersonalStatus, PersonalTask } from '../../../shared/personal.ts'
+import type { PersonalObserverMonitor, PersonalAgentObservation, PersonalAgentRun, PersonalCheckin, PersonalDailyPlan, PersonalMailPage, PersonalMailThread, PersonalOverview, PersonalProviderStatus, PersonalRequest, PersonalStatus, PersonalTask } from '../../../shared/personal.ts'
 import { dateToDueAt, errorMessage } from './model.ts'
 
 export type PersonalTransport = (request: PersonalRequest) => Promise<unknown>
@@ -28,6 +28,8 @@ export interface PersonalData {
   agentRuns: PersonalAgentRun[]
   agentRunsLoading: boolean
   agentRunsError: string | null
+  observationHistory: boolean
+  observerMonitor: PersonalObserverMonitor | null
   agentObservations: PersonalAgentObservation[]
   agentObservationsLoading: boolean
   agentObservationsError: string | null
@@ -52,7 +54,7 @@ const mailSnapshot = (result: PersonalMailPage, query: string, category: string,
 
 /** Renderer state contains service records only. The injected transport owns authentication. */
 export function createPersonalController(transport: PersonalTransport) {
-  const state = atom<PersonalData>({ status: null, overview: null, tasks: [], mail: [], providers: [], checkins: [], loading: false, mailLoading: false, error: null, mailError: null, lastLoadedAt: null, mailQuery: '', mailCategory: '', mailTotal: 0, mailOffset: 0, mailNextOffset: null, mailPreviousOffsets: [], brief: null, lastArchive: null, agentRuns: [], agentRunsLoading: false, agentRunsError: null, agentObservations: [], agentObservationsLoading: false, agentObservationsError: null, dailyPlan: null, dailyPlanDate: null, dailyPlanLoading: false, dailyPlanError: null })
+  const state = atom<PersonalData>({ status: null, overview: null, tasks: [], mail: [], providers: [], checkins: [], loading: false, mailLoading: false, error: null, mailError: null, lastLoadedAt: null, mailQuery: '', mailCategory: '', mailTotal: 0, mailOffset: 0, mailNextOffset: null, mailPreviousOffsets: [], brief: null, lastArchive: null, agentRuns: [], agentRunsLoading: false, agentRunsError: null, observationHistory: false, observerMonitor: null, agentObservations: [], agentObservationsLoading: false, agentObservationsError: null, dailyPlan: null, dailyPlanDate: null, dailyPlanLoading: false, dailyPlanError: null })
   const patch = (value: Partial<PersonalData>) => state.set({ ...state.get(), ...value })
   const request = async <T>(method: PersonalRequest['method'], path: string, body?: unknown): Promise<T> => transport({ method, path, ...(body === undefined ? {} : { body }) } as PersonalRequest) as Promise<T>
   let generation = 0
@@ -153,12 +155,13 @@ export function createPersonalController(transport: PersonalTransport) {
         if (current === planGeneration) patch({ dailyPlanLoading: false, dailyPlanError: errorMessage(error) })
       }
     },
+    showObservationHistory(show: boolean) { patch({ observationHistory: show }) },
     async loadAgentObservations() {
       const current = ++observationsGeneration
       patch({ agentObservationsLoading: true, agentObservationsError: null })
       try {
-        const result = await request<{ items: PersonalAgentObservation[] }>('GET', '/v1/agent-observations')
-        if (current === observationsGeneration) patch({ agentObservations: result.items, agentObservationsLoading: false })
+        const result = await request<{ items: PersonalAgentObservation[]; monitor?: PersonalObserverMonitor }>('GET', '/v1/agent-observations')
+        if (current === observationsGeneration) patch({ observerMonitor: result.monitor || null, agentObservations: result.items, agentObservationsLoading: false })
       } catch (error) {
         if (current === observationsGeneration) patch({ agentObservationsLoading: false, agentObservationsError: errorMessage(error) })
       }

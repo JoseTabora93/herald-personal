@@ -66,6 +66,7 @@ class Settings(BaseModel):
     gmail_token_file: Path | None = Field(default=None, repr=False)
     mail_workspace_url: str | None = Field(default=None, repr=False)
     mail_workspace_token_file: Path | None = Field(default=None, repr=False)
+    observer_config_file: Path | None = None
     mail_draft_enabled: bool = False
     mail_archive_enabled: bool = False
     max_sync_pages: int = Field(default=3, ge=1, le=10)
@@ -95,6 +96,7 @@ class Settings(BaseModel):
             gmail_token_file=path("HERALD_GMAIL_TOKEN_FILE"),
             mail_workspace_url=os.environ.get("HERALD_MAIL_WORKSPACE_URL"),
             mail_workspace_token_file=path("HERALD_MAIL_WORKSPACE_TOKEN_FILE"),
+            observer_config_file=path("HERALD_OBSERVER_CONFIG"),
             mail_draft_enabled=os.environ.get("HERALD_PERSONAL_MAIL_DRAFT_ENABLED") == "true",
             mail_archive_enabled=os.environ.get("HERALD_PERSONAL_MAIL_ARCHIVE_ENABLED") == "true",
         )

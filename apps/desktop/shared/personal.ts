@@ -160,3 +160,7 @@ export interface PersonalDailyPlan {
   model_error: 'not_configured' | 'timeout' | 'invalid_response' | 'provider_error' | null
   verification: 'not_run'
 }
+
+export type PersonalMailAsset = { kind: 'signature' } | { kind: 'attachment'; clave: string; message_id: string; attachment_id: string }
+
+export interface PersonalObserverMonitor { configured: boolean; interval_seconds: number; last_poll_at: string | null; errors: string[] }

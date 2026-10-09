@@ -5,13 +5,19 @@ from typing import Any
 
 from fastapi import FastAPI
 
+from .live_observer import LiveObserver
 from .planning import GeneratePlan, Observation, PlanClaim, PlanError, Planning, PlanRecommendations
 
 
-def attach_planning_routes(app: FastAPI, planning: Planning) -> None:
+def attach_planning_routes(
+    app: FastAPI, planning: Planning, monitor: LiveObserver | None = None
+) -> None:
     @app.get("/v1/agent-observations")
-    def observations() -> dict[str, list[dict[str, Any]]]:
-        return {"items": planning.observations()}
+    def observations() -> dict[str, Any]:
+        return {
+            "items": planning.observations(),
+            "monitor": monitor.snapshot() if monitor else None,
+        }
 
     @app.put("/v1/agent-observations/{observer_id}")
     def observe(observer_id: str, payload: Observation) -> Observation:
