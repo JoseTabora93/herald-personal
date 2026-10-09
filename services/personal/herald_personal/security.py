@@ -59,7 +59,7 @@ class RequestGuard:
                 headers={"WWW-Authenticate": "Bearer"},
             )(scope, receive, send)
             return
-        expensive = (
+        expensive = scope["path"] == "/v1/mail-workspace/local" or (
             scope["method"] == "POST"
             and "/mail/" in scope["path"]
             and not scope["path"].endswith("/task")

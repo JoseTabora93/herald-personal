@@ -413,3 +413,21 @@ Compositor lacks. What only Herald has goes in fields of its own beside a record
   to Herald as its stand-in. Rejected: a new value in `adjustment.kind` or a format version of our
   own (Compositor would refuse the project), and colour tables inside the manifest (Compositor
   refuses manifests over 4 MB, about what one 65-entry table takes as text).
+
+
+## ADR-021: Native mail UI with the existing domain service and approval boundary
+
+Personal mail now renders as Herald components rather than opening a guest application by default.
+The existing mail service remains the authority for MAIL identities, classification, model workflows,
+drafts and provider access. An authenticated allowlisted bridge exposes bounded reads and local
+draft/classification contracts; no duplicate mailbox synchronization or model stack is introduced.
+
+Browser-session-only approvals (send, Outlook draft creation, cleanup and learning activation) retain
+the original UI. The compatibility handoff passes the exact saved compose identity and refuses dirty
+or in-flight changes. It never impersonates a frontend session or creates a second send authority.
+This transition is explicit in the UI and preserves all existing specialist workflows.
+
+Mail bodies render as plain text. Draft previews block remote images and active links. Renderer state
+keeps unsaved edits on failure, rejects stale list/detail responses, verifies save readbacks and stores
+only a compose identifier for restart recovery. The OS command registry uses the native selection by
+default and reads the guest selection only while the compatibility view is active.

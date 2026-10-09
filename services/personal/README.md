@@ -80,12 +80,14 @@ caller's cookies, CSRF headers or frontend capability to the original applicatio
 | --- | --- |
 | `GET /v1/mail-workspace/status` | Returns `configured`, `reachable`, `base_url`, `error` and `counts`; reads only native `mail-counts`, using `periodo=ventana`. |
 | `POST /v1/mail-workspace/query` | Takes `{action, params}` and invokes one allowed native GET action with strict, bounded parameters. Returns the native JSON object, capped at 1 MiB. |
+| `POST /v1/mail-workspace/local` | Strict local-only classification/compose contracts for the native desktop; never proxies browser-only approvals or provider writes. |
 | `POST /v1/mail-workspace/tasks` | Takes `{clave, title?, due_at?, priority?}`; rereads the exact `MAIL-n` item and creates/reuses a commitment with `source_id=ingelmec-mail:MAIL-n`. Copies its title and source link, not its message bodies. |
 
 Read actions are `mail-counts`, `mail-list-items`, `mail-get-item`, `mail-draft-get`,
-`mail-carpetas`, `mail-aprendizajes-listar`, `mail-limpieza-propuestas`, `mail-metricas` and
-`mail-connection-status`. The last action can refresh the original application's OAuth cache and
-runs only on an explicit query; passive status, overview and daily-plan collection never call it.
+`mail-carpetas`, `mail-aprendizajes-listar`, `mail-limpieza-propuestas`, `mail-metricas`,
+`mail-connection-status`, `mail-rezagados`, `mail-backfill-estado` and `mail-lotes-estado`.
+The connection-status action can refresh the original application's OAuth cache and runs only
+on an explicit query; passive status, overview and daily-plan collection never call it.
 Counts follow the original application's configured window. Lists preserve native `limite` and
 `desplazamiento`; the bridge allows at most 100 items per query. Reading a thread requests plain text,
 bounded messages and bounded characters. Unknown actions or parameters return 422, upstream failures
@@ -99,10 +101,10 @@ say when the original workspace cannot be verified. Legacy mail list, sync, cate
 draft, archive and undo routes return 409 in this mode, including generic task captures from old
 mail IDs. Manual commitments and previously created commitments remain usable.
 
-JEV classification, GLM's second criterion, drafting, editor adjustments, learning proposals and
-cleanup remain in the original application. This bridge does not start jobs, run models, mark mail
-seen, or authorize a native `uiOnly` action. The embedded native interface retains its own human
-confirmation and security gates. The operator must separately configure a safe startup for the
+JEV classification, GLM's second criterion, drafting and learning logic remain in the original
+service. Herald renders their results natively and exposes local drafting on explicit requests.
+The read bridge never runs models, starts jobs or marks mail seen. Browser-only approvals retain
+their original confirmation and security gates; no bridge operation authorizes a `uiOnly` action. The operator must separately configure a safe startup for the
 original app; starting this personal API does not launch or reconfigure it.
 
 ## Record and synchronization guarantees
@@ -180,3 +182,14 @@ Protocol references: [Microsoft message delta](https://learn.microsoft.com/en-us
 [Gmail synchronization](https://developers.google.com/workspace/gmail/api/guides/sync),
 [Gmail modify](https://developers.google.com/workspace/gmail/api/reference/rest/v1/users.messages/modify),
 and [Gmail draft creation](https://developers.google.com/workspace/gmail/api/reference/rest/v1/users.drafts/create).
+
+
+### Native mail desktop extension
+
+The default mail UI is now native Herald. `/v1/mail-workspace/local` uses a separate strict action
+allowlist: `mail-update-item`, `mail-compose-get` (GET upstream), `mail-compose-open`,
+`mail-compose-save`, `mail-draft-reply`, `mail-draft-adjust`, and `mail-draft-version` (POST upstream).
+The model actions run only on explicit UI requests and use a 120-second upstream timeout. Other
+operations retain the 15-second bound. Local actions are rate limited; writes are never retried.
+Only the preexisting service runs models or owns drafts. No cookies or UI capabilities are forged.
+The MCP read catalog remains separate. See `docs/personal/CORREO-NATIVO.md` for the transition.

@@ -1,13 +1,16 @@
 import type { PersonalPriority, PersonalTaskStatus } from '../../shared/personal.ts'
 import { buildTaskCreate, buildTaskPatch, errorMessage, localDate, TAB_LABELS, TASK_STATUS, type PersonalTab, type TaskForm } from '../features/personal/model.ts'
 import { MAIL_WORKSPACE_VIEWS } from '../features/personal/mail-workspace.ts'
-import { $personal, focusPersonal, mailWorkspace, personal } from '../store/personal.ts'
+import { $personal, focusPersonal, mailWorkspace, nativeMail, personal } from '../store/personal.ts'
+import { nativeMailCommands } from './personal-mail.ts'
 import { fail, ok, type OsCommand } from '../store/os-commands.ts'
 import { showPage } from '../store/windows.ts'
 
 const idArg = { name: 'id', type: 'string', description: 'Identificador del elemento', required: true } as const
 const open = (focus: Parameters<typeof focusPersonal>[0]) => { focusPersonal(focus); showPage('personal') }
 const selectedMailClave = () => {
+  const native = nativeMail.state.get()
+  if (!native.legacy) return !native.detailLoading && !native.detailError && native.thread?.item.clave === native.selectedClave ? native.selectedClave : null
   const current = mailWorkspace.state.get()
   return current.phase === 'ready' && current.selectedClave && /^MAIL-[1-9][0-9]*$/.test(current.selectedClave) ? current.selectedClave : null
 }
@@ -38,14 +41,14 @@ const commands: readonly OsCommand[] = [
     args: [{ name: 'view', type: 'string', description: 'Vista de correo', enum: Object.keys(MAIL_WORKSPACE_VIEWS) }],
     run: async ({ view }) => {
       open({ tab: 'mail' })
-      await mailWorkspace.navigate(`/${String(view ?? 'tablero')}`)
-      const error = mailWorkspace.state.get().error
+      await nativeMail.navigate(String(view ?? 'tablero') as keyof typeof MAIL_WORKSPACE_VIEWS)
+      const error = nativeMail.state.get().error
       return error ? fail(error) : ok('Vista de correo solicitada.', { page: 'personal' })
     }
   },
   {
     id: 'personal.mailWorkspace.reload', title: 'Recargar Ingelmec Mail', description: 'Reintentar o recargar el correo en la misma vista integrada.', tier: 'read', args: [],
-    run: async () => { await mailWorkspace.reload(); const error = mailWorkspace.state.get().error; return error ? fail(error) : ok('Recarga de correo solicitada.') }
+    run: async () => { await Promise.all([nativeMail.load(), nativeMail.overview()]); const error = nativeMail.state.get().error; return error ? fail(error) : ok('Correo actualizado.') }
   },
   {
     id: 'personal.mailWorkspace.ask', title: 'Consultar correo con Hermes', description: 'Consultar con Hermes el hilo MAIL seleccionado en la aplicación de correo.', tier: 'act', args: [],
@@ -125,7 +128,7 @@ const commands: readonly OsCommand[] = [
   }
 ]
 
-export const personalCommands: readonly OsCommand[] = commands.map<OsCommand>(command => ({
+export const personalCommands: readonly OsCommand[] = [...commands, ...nativeMailCommands].map<OsCommand>(command => ({
   ...command,
   run: async (args, context) => {
     try { return await command.run(args, context) }

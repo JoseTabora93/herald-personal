@@ -2,6 +2,13 @@ import { atom } from 'nanostores'
 import { createPersonalController } from '../features/personal/controller.ts'
 import type { PersonalTab } from '../features/personal/model.ts'
 import { createMailWorkspaceController } from '../features/personal/mail-workspace.ts'
+import { createNativeMailController } from '../features/personal/native-mail.ts'
+
+export const nativeMail = createNativeMailController(request => window.heraldOS.personal.request(request), {
+  getItem: key => window.localStorage.getItem(key),
+  setItem: (key, value) => window.localStorage.setItem(key, value),
+  removeItem: key => window.localStorage.removeItem(key)
+})
 
 export const personal = createPersonalController(async request => {
   if (!window.heraldOS?.personal) throw new Error('El servicio personal no está disponible en esta ventana. Abre la aplicación de escritorio y revisa la conexión del servicio.')

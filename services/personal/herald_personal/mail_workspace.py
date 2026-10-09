@@ -10,6 +10,7 @@ from pydantic import ValidationError
 
 from .config import Settings, TokenSource
 from .errors import ServiceError
+from .mail_local_models import LOCAL_ACTIONS
 from .mail_workspace_models import READ_ACTIONS, WorkspaceCapture
 from .models import Task, TaskCreate
 from .records import Records
@@ -107,6 +108,21 @@ class MailWorkspace:
             validated = schema.model_validate(params).model_dump(exclude_none=True)
         except ValidationError as error:
             raise ServiceError(422, "Parámetros de correo inválidos.") from error
+        return self._request(action, validated, method="GET")
+
+    def local(self, action: str, params: dict[str, Any]) -> dict[str, Any]:
+        schema = LOCAL_ACTIONS.get(action)
+        if schema is None:
+            raise ServiceError(422, "Esta operación requiere la interfaz original de correo.")
+        try:
+            validated = schema.model_validate(params).model_dump(exclude_none=True)
+        except ValidationError as error:
+            raise ServiceError(422, "Parámetros de correo inválidos.") from error
+        return self._request(
+            action, validated, method="GET" if action == "mail-compose-get" else "POST"
+        )
+
+    def _request(self, action: str, validated: dict[str, Any], *, method: str) -> dict[str, Any]:
         if self.base_url is None:
             raise ServiceError(503, "El espacio de correo original no está configurado.")
         token = self.token.read()
@@ -123,16 +139,22 @@ class MailWorkspace:
             else str(value).lower()
             if isinstance(value, bool)
             else str(value)
-            for name, value in validated.items()
+            for name, value in (validated.items() if method == "GET" else [])
         }
         try:
             with self.client.stream(
-                "GET",
+                method,
                 self.base_url + "/_agent-native/actions/" + action,
-                params=arguments,
+                params=arguments if method == "GET" else None,
+                json=validated if method == "POST" else None,
                 headers=headers,
                 follow_redirects=False,
-                timeout=httpx.Timeout(15, connect=2, write=5, pool=2),
+                timeout=httpx.Timeout(
+                    120 if action in {"mail-draft-reply", "mail-draft-adjust"} else 15,
+                    connect=2,
+                    write=5,
+                    pool=2,
+                ),
             ) as response:
                 if response.status_code == 404:
                     raise ServiceError(404, "No se encontró el recurso en el espacio de correo.")

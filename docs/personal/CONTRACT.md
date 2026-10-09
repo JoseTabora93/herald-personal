@@ -51,7 +51,7 @@ An email becomes the same durable commitment from GUI or MCP. Stale edits and re
 
 ## Workspace and daily-plan extension (2026-10-08)
 
-The configured mail workspace owns message identity and provider operations. A native isolated view preserves its existing UI and drafts; the Hermes bridge provides allowlisted reads and idempotent MAIL-n capture only. Legacy mail mutations and synchronization fail closed while workspace authority is enabled. The guest has no shell preload or Node access, and renderer-supplied URLs cannot replace the configured origin.
+The configured mail workspace owns message identity and provider operations. Native Herald components render the default mailbox and composer. A separate local-action allowlist reuses the existing draft/classification service. The isolated compatibility view preserves browser-only approvals and receives the exact saved compose identity; the Hermes bridge provides allowlisted reads and idempotent MAIL-n capture only. Legacy mail mutations and synchronization fail closed while workspace authority is enabled. The guest has no shell preload or Node access, and renderer-supplied URLs cannot replace the configured origin.
 
 Daily plans and observed sessions are persisted through the same authenticated API. Observation reads public Claude/OpenCode metadata within configured scopes, never conversation content or agent control endpoints. Stale records become unknown; process state never implies reviewed work. Separate script-only routes claim a maximum of one model invocation and one local opening per date; the general MCP cannot access these claims or submit model recommendations.
 

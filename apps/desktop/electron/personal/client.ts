@@ -35,7 +35,7 @@ const routes: [string, RegExp, string[]][] = [
   ['GET', /^\/v1\/(mail-workspace\/status|agent-observations)$/, []],
   ['GET', /^\/v1\/daily-plans$/, ['date']],
   ['POST', /^\/v1\/daily-plans\/generate$/, []],
-  ['POST', /^\/v1\/mail-workspace\/(query|tasks)$/, []],
+  ['POST', /^\/v1\/mail-workspace\/(query|tasks|local)$/, []],
   ['GET', /^\/v1\/brief$/, ['kind']],
   ['GET', /^\/v1\/tasks$/, ['status', 'q']],
   ['POST', /^\/v1\/tasks$/, []],
@@ -135,7 +135,7 @@ export async function requestPersonal<T = unknown>(
   let response: Response
   try {
     response = await fetcher(`${origin}${request.path}`, {
-      method: request.method, body, redirect: 'error', signal: AbortSignal.timeout(20_000),
+      method: request.method, body, redirect: 'error', signal: AbortSignal.timeout(request.path === '/v1/mail-workspace/local' ? 135_000 : 20_000),
       headers: { Authorization: `Bearer ${token}`, Accept: 'application/json', ...(body ? { 'Content-Type': 'application/json' } : {}) }
     })
   } catch { throw new Error('Servicio personal desconectado o sin respuesta. Verifica su estado antes de repetir una escritura.') }

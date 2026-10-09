@@ -253,6 +253,10 @@ def create_app(
     def workspace_query(payload: WorkspaceQuery) -> dict[str, Any]:
         return mail_workspace.query(payload.action, payload.params)
 
+    @app.post("/v1/mail-workspace/local")
+    def workspace_local(payload: WorkspaceQuery) -> dict[str, Any]:
+        return mail_workspace.local(payload.action, payload.params)
+
     @app.post("/v1/mail-workspace/tasks", status_code=201)
     def workspace_capture(payload: WorkspaceCapture) -> Task:
         return mail_workspace.capture(payload)

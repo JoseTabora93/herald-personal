@@ -80,6 +80,16 @@ class CleanupParams(ReadParams):
     carpeta: ShortText | None = None
 
 
+class BacklogParams(CleanupParams):
+    umbralDias: Annotated[int, Field(ge=1, le=36500)] | None = None
+    remitente: ShortText | None = None
+    anio: Annotated[int, Field(ge=1990, le=2100)] | None = None
+
+
+class BatchesParams(ReadParams):
+    limite: Annotated[int, Field(ge=1, le=50)] = 12
+
+
 class MetricsParams(ReadParams):
     desde: Annotated[str, Field(max_length=40)] | None = None
     hasta: Annotated[str, Field(max_length=40)] | None = None
@@ -107,6 +117,9 @@ READ_ACTIONS: dict[str, type[ReadParams]] = {
     "mail-limpieza-propuestas": CleanupParams,
     "mail-metricas": MetricsParams,
     "mail-connection-status": ReadParams,
+    "mail-rezagados": BacklogParams,
+    "mail-backfill-estado": ReadParams,
+    "mail-lotes-estado": BatchesParams,
 }
 
 
