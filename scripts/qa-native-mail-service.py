@@ -3,6 +3,7 @@
 import json
 import secrets
 import sys
+import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from threading import Thread
@@ -50,7 +51,9 @@ def handler(request):
         result = {'item': item(int(n))}
     elif action == 'mail-aprendizajes-listar': result = {'aprendizajes': [{'id': 1, 'clave': 'APR-1', 'estado': 'propuesto', 'texto': 'QA · Prefiere respuestas concretas y breves.', 'nCasos': 3, 'ambito': 'redactor', 'ejemplos': ['MAIL-1']}], 'conteos': {'propuesto': 1}}
     elif action == 'mail-limpieza-propuestas': result = {'grupos': [{'id': 'synthetic-group', 'nombre': 'Boletín de prueba', 'valor': 'boletin@example.test', 'categoria': 'Notificaciones', 'correos': 12, 'anios': '2026', 'muyAlta': True, 'muestras': ['QA · Resumen semanal']}], 'totales': {'correos': 12, 'grupos': 1}, 'hayMas': False}
-    elif action == 'mail-lotes-estado': result = {'lotes': []}
+    elif action == 'mail-lotes-estado':
+        time.sleep(2)  # Progress must never hold the navigation interaction open.
+        result = {'lotes': []}
     elif action == 'mail-backfill-estado': result = {'hayCorrida': False}
     elif action == 'mail-compose-open':
         if data['compose'] is None or data['compose']['clave'] != p.get('clave'):

@@ -80,8 +80,9 @@ export function createNativeMailController(request: (request: PersonalRequest) =
       }
       else patch({ ...parseMailPage(result), phase: 'ready' })
       if (view === 'historico' || view === 'limpieza') {
-        try { const supplemental = record(await query(view === 'historico' ? 'mail-backfill-estado' : 'mail-lotes-estado')); if (generation === listGeneration) patch({ supplemental }) }
-        catch { if (generation === listGeneration) patch({ supplementalError: 'No se pudo consultar el progreso. Reintenta actualizar.' }) }
+        void query(view === 'historico' ? 'mail-backfill-estado' : 'mail-lotes-estado')
+          .then(value => { if (generation === listGeneration) patch({ supplemental: record(value) }) })
+          .catch(() => { if (generation === listGeneration) patch({ supplementalError: 'No se pudo consultar el progreso. Reintenta actualizar.' }) })
       }
     } catch (error) { if (generation === listGeneration) patch({ phase: 'error', error: errorMessage(error) }) }
   }

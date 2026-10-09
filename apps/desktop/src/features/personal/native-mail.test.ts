@@ -133,6 +133,20 @@ describe('native mailbox authority and continuity', () => {
     await c.navigate('aprendizajes'); expect(c.state.get().phase).toBe('error')
   })
 
+  it('does not hold navigation open while secondary cleanup progress is still pending', async () => {
+    const pending = deferred<unknown>()
+    const request = vi.fn().mockResolvedValueOnce({ grupos: [], totales: { correos: 0 } }).mockImplementationOnce(() => pending.promise).mockResolvedValue({ items: [], total: 0 })
+    const c = createNativeMailController(request)
+    let completed = false
+    const opening = c.navigate('limpieza').then(() => { completed = true })
+    await new Promise(resolve => setTimeout(resolve, 0))
+    expect(completed).toBe(true)
+    await c.navigate('lista')
+    pending.resolve({ lotes: [{ estado: 'old' }] }); await opening
+    expect(c.state.get().view).toBe('lista')
+    expect(c.state.get().supplemental).toBeNull()
+  })
+
   it('loads learning proposals and backlog without exposing approval writes', async () => {
     const request = vi.fn().mockResolvedValueOnce({ aprendizajes: [{ clave: 'APR-1' }] }).mockResolvedValueOnce({ items: [item('MAIL-1')], total: 1 })
     const c = createNativeMailController(request); await c.navigate('aprendizajes'); expect(c.state.get().auxiliary?.aprendizajes).toBeTruthy()
