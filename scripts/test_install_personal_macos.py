@@ -46,8 +46,11 @@ def fake_clock(module, monkeypatch):
     return elapsed
 
 
-def test_installer_has_a_read_only_plan_entrypoint(source, destination, tmp_path):
+def test_installer_has_a_read_only_plan_entrypoint(source, destination, tmp_path, monkeypatch):
     module = load_installer()
+    # The plan checks prerequisites but must never run them. CI need not have uv installed.
+    monkeypatch.setattr(module.shutil, "which", lambda name: "/fixture/bin/uv" if name == "uv" else None)
+    monkeypatch.setattr(module.subprocess, "run", lambda *args, **kwargs: pytest.fail("dry-run executed a subprocess"))
     result = module.install(source, destination, tmp_path / "LaunchAgents", dry_run=True)
     assert result["target"] == str(destination)
     assert not destination.exists()

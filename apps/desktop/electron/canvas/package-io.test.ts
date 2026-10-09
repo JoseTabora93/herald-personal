@@ -160,6 +160,9 @@ describe('PackageWatcher', () => {
     watcher.start()
 
     try {
+      // FSEvents arms a newly created directory asynchronously; fs.watch has no ready event.
+      // Start the replacement after setup, as the manifest test above already does.
+      await settle()
       const noise = { width: 2, height: 2, channels: 4 as const, data: Uint8Array.from({ length: 16 }, (_, i) => (i * 97) % 256) }
       const file = path.join(dir, 'images', imageFileFor(B))
       const before = (await fs.stat(file)).size
