@@ -34,6 +34,7 @@ try {
   await fs.mkdir(QA, { recursive: true, mode: 0o700 })
   for (const file of ['source.json', 'requests.jsonl']) await fs.rm(path.join(QA, file), { force: true })
   await fs.rm(path.join(QA, 'chromium'), { recursive: true, force: true })
+  await fs.rm(path.join(QA, 'data'), { recursive: true, force: true }) // Reset only the isolated fixture between complete QA runs.
   await fs.mkdir(path.join(QA, 'hermes-home/herald-os'), { recursive: true })
   await fs.writeFile(path.join(QA, 'hermes-home/herald-os/prefs.json'), JSON.stringify({ fullscreenOnLaunch: false, reduceMotion: true, voice: { enabled: false, wakeWord: false }, continuity: { enabled: false, exclude: [] }, crashHelp: { enabled: false, muted: [] } }))
   await fs.writeFile(path.join(QA, 'entry.mjs'), `import {app} from 'electron'; app.setPath('appData',${JSON.stringify(path.join(QA,'app-data'))}); app.setPath('userData',${JSON.stringify(path.join(QA,'chromium'))}); await import(${JSON.stringify(pathToFileURL(path.join(ROOT,'apps/desktop/dist/electron/main.mjs')).href)});`)
