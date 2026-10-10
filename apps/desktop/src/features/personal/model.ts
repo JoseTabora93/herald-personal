@@ -1,8 +1,8 @@
 import type { PersonalEvent, PersonalProviderStatus, PersonalTask } from '../../../shared/personal.ts'
 
 export const PERSONAL_TIMEZONE = 'America/Tegucigalpa'
-export type PersonalTab = 'today' | 'mail' | 'tasks' | 'journal' | 'development'
-export const TAB_LABELS: Record<PersonalTab, string> = { today: 'Hoy', mail: 'Correo', tasks: 'Compromisos', journal: 'Diario', development: 'Desarrollo' }
+export type PersonalTab = 'today' | 'mail' | 'tasks' | 'journal' | 'development' | 'projects'
+export const TAB_LABELS: Record<PersonalTab, string> = { today: 'Hoy', mail: 'Correo', tasks: 'Compromisos', journal: 'Diario', development: 'Desarrollo', projects: 'Proyectos' }
 export const TASK_STATUS: Record<PersonalTask['status'], string> = { inbox: 'Por ordenar', next: 'Siguiente', in_progress: 'En curso', waiting: 'En espera', done: 'Completado', cancelled: 'Cancelado' }
 export const TASK_PRIORITY: Record<PersonalTask['priority'], string> = { low: 'Baja', normal: 'Normal', high: 'Alta' }
 export const MAIL_CATEGORY = { urgent: 'Urgente', action: 'Por atender', waiting: 'En espera', reference: 'Referencia', newsletter: 'Boletín' } as const

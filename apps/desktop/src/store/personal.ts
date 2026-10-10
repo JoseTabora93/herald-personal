@@ -25,6 +25,8 @@ export const mailWorkspace = createMailWorkspaceController({
 })
 export interface PersonalFocus {
   tab: PersonalTab
+  projectId?: string
+  projectItemId?: string
   taskId?: string
   compose?: boolean
   mailId?: string

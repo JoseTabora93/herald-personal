@@ -1,11 +1,16 @@
 import { atom } from 'nanostores'
 import type { PersonalObserverMonitor, PersonalAgentObservation, PersonalAgentRun, PersonalCheckin, PersonalDailyPlan, PersonalMailPage, PersonalMailThread, PersonalOverview, PersonalProviderStatus, PersonalRequest, PersonalStatus, PersonalTask } from '../../../shared/personal.ts'
 import { dateToDueAt, errorMessage } from './model.ts'
+import type { PersonalProject } from '../../../shared/personal.ts'
 
 export type PersonalTransport = (request: PersonalRequest) => Promise<unknown>
 export interface PersonalBrief { text: string; generated_at: string; source_ids: string[] }
 export interface TaskEvent { id: string; kind: string; created_at: string; detail: string }
 export interface PersonalData {
+  projects: PersonalProject[]
+  projectsLoading: boolean
+  projectsError: string | null
+  projectsLoadedAt: string | null
   status: PersonalStatus | null
   overview: PersonalOverview | null
   tasks: PersonalTask[]
@@ -54,7 +59,7 @@ const mailSnapshot = (result: PersonalMailPage, query: string, category: string,
 
 /** Renderer state contains service records only. The injected transport owns authentication. */
 export function createPersonalController(transport: PersonalTransport) {
-  const state = atom<PersonalData>({ status: null, overview: null, tasks: [], mail: [], providers: [], checkins: [], loading: false, mailLoading: false, error: null, mailError: null, lastLoadedAt: null, mailQuery: '', mailCategory: '', mailTotal: 0, mailOffset: 0, mailNextOffset: null, mailPreviousOffsets: [], brief: null, lastArchive: null, agentRuns: [], agentRunsLoading: false, agentRunsError: null, observationHistory: false, observerMonitor: null, agentObservations: [], agentObservationsLoading: false, agentObservationsError: null, dailyPlan: null, dailyPlanDate: null, dailyPlanLoading: false, dailyPlanError: null })
+  const state = atom<PersonalData>({ projects: [], projectsLoading: false, projectsError: null, projectsLoadedAt: null, status: null, overview: null, tasks: [], mail: [], providers: [], checkins: [], loading: false, mailLoading: false, error: null, mailError: null, lastLoadedAt: null, mailQuery: '', mailCategory: '', mailTotal: 0, mailOffset: 0, mailNextOffset: null, mailPreviousOffsets: [], brief: null, lastArchive: null, agentRuns: [], agentRunsLoading: false, agentRunsError: null, observationHistory: false, observerMonitor: null, agentObservations: [], agentObservationsLoading: false, agentObservationsError: null, dailyPlan: null, dailyPlanDate: null, dailyPlanLoading: false, dailyPlanError: null })
   const patch = (value: Partial<PersonalData>) => state.set({ ...state.get(), ...value })
   const request = async <T>(method: PersonalRequest['method'], path: string, body?: unknown): Promise<T> => transport({ method, path, ...(body === undefined ? {} : { body }) } as PersonalRequest) as Promise<T>
   let generation = 0
@@ -62,6 +67,7 @@ export function createPersonalController(transport: PersonalTransport) {
   let runsGeneration = 0
   let observationsGeneration = 0
   let planGeneration = 0
+  let projectsGeneration = 0
   const writes = new Set<string>()
 
   async function refresh() {
@@ -135,6 +141,16 @@ export function createPersonalController(transport: PersonalTransport) {
 
   return {
     state, refresh, searchMail, pageMail,
+    async loadProjects() {
+      const current = ++projectsGeneration
+      patch({ projectsLoading: true, projectsError: null })
+      try {
+        const result = await request<{ items: PersonalProject[]; as_of: string }>('GET', '/v1/projects')
+        if (current === projectsGeneration) patch({ projects: result.items, projectsLoading: false, projectsLoadedAt: result.as_of })
+      } catch (error) {
+        if (current === projectsGeneration) patch({ projectsLoading: false, projectsError: errorMessage(error) })
+      }
+    },
     async loadDailyPlan(date: string) {
       const current = ++planGeneration
       patch({ dailyPlanDate: date, dailyPlan: state.get().dailyPlan?.date === date ? state.get().dailyPlan : null, dailyPlanLoading: true, dailyPlanError: null })

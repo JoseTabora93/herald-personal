@@ -3,6 +3,7 @@ import { buildTaskCreate, buildTaskPatch, errorMessage, localDate, TAB_LABELS, T
 import { MAIL_WORKSPACE_VIEWS } from '../features/personal/mail-workspace.ts'
 import { $personal, focusPersonal, mailWorkspace, nativeMail, personal } from '../store/personal.ts'
 import { nativeMailCommands } from './personal-mail.ts'
+import { projectCommands } from './personal-projects.ts'
 import { fail, ok, type OsCommand } from '../store/os-commands.ts'
 import { showPage } from '../store/windows.ts'
 
@@ -79,7 +80,7 @@ const commands: readonly OsCommand[] = [
     run: async () => { await Promise.all([personal.loadAgentRuns(), personal.loadAgentObservations()]); const state = $personal.get(); const error = state.agentObservationsError || state.agentRunsError; return error ? fail(error) : ok('Observaciones y ejecuciones actualizadas. La revisión del resultado se indica por separado.') }
   },
   {
-    id: 'personal.open', title: 'Abrir mi espacio personal', description: 'Ver Hoy, Correo, Compromisos, Diario o Desarrollo.', tier: 'read',
+    id: 'personal.open', title: 'Abrir mi espacio personal', description: 'Ver Hoy, Proyectos, Correo, Compromisos, Diario o Desarrollo.', tier: 'read',
     args: [{ name: 'tab', type: 'string', description: 'Sección personal', enum: Object.keys(TAB_LABELS) }],
     phrases: ['abrir mi espacio personal', 'ver mi día', { phrase: 'abrir mi correo', args: { tab: 'mail' } }, { phrase: 'ver mis compromisos', args: { tab: 'tasks' } }, { phrase: 'abrir mi diario', args: { tab: 'journal' } }, { phrase: 'supervisar desarrollo', args: { tab: 'development' } }],
     run: ({ tab }) => { const target = (tab ?? 'today') as PersonalTab; open({ tab: target }); return ok(`Abierto: ${TAB_LABELS[target]}.`, { page: 'personal' }) }
@@ -131,7 +132,7 @@ const commands: readonly OsCommand[] = [
   }
 ]
 
-export const personalCommands: readonly OsCommand[] = [...commands, ...nativeMailCommands].map<OsCommand>(command => ({
+export const personalCommands: readonly OsCommand[] = [...commands, ...nativeMailCommands, ...projectCommands].map<OsCommand>(command => ({
   ...command,
   run: async (args, context) => {
     try { return await command.run(args, context) }

@@ -164,3 +164,42 @@ export interface PersonalDailyPlan {
 export type PersonalMailAsset = { kind: 'signature' } | { kind: 'attachment'; clave: string; message_id: string; attachment_id: string }
 
 export interface PersonalObserverMonitor { configured: boolean; interval_seconds: number; last_poll_at: string | null; errors: string[] }
+
+export type PersonalProjectStage = 'planned' | 'running' | 'review' | 'attention' | 'unknown' | 'integrated' | 'completed' | 'cancelled'
+export interface PersonalProjectItem {
+  key: string
+  task: PersonalTask
+  stage: PersonalProjectStage
+  reason: string
+  run_id: string | null
+  run_status: 'queued' | 'running' | 'completed' | 'failed' | 'cancelled' | 'unknown'
+  branch: string | null
+  source_id: string | null
+  source_updated_at: string | null
+  run_fresh: boolean
+  missing: boolean
+  pr: { repository: string; number: number; state: 'OPEN' | 'MERGED' | 'CLOSED'; updated_at: string; url: string } | null
+  pr_checked_at: string | null
+  verification: 'not_run'
+}
+export interface PersonalProjectSource {
+  id: string
+  label: string
+  interval_seconds: number
+  health: 'ok' | 'partial' | 'stale' | 'error'
+  last_attempt_at: string
+  last_success_at: string | null
+  source_updated_at: string | null
+  run_fresh: boolean
+  error: 'source_unavailable' | 'source_invalid' | null
+  github_error: boolean
+  warnings: string[]
+}
+export interface PersonalProject {
+  id: string
+  name: string
+  counts: { total: number; closed: number; running: number; attention: number; review: number; merged: number }
+  items: PersonalProjectItem[]
+  sources: PersonalProjectSource[]
+  events: (PersonalEvent & { task_id: string; title: string })[]
+}

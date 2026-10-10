@@ -83,6 +83,18 @@ CREATE TABLE daily_plan_claims (
 );
 """
 
+PROJECT_SCHEMA = """
+CREATE TABLE project_sources (
+ source_id TEXT PRIMARY KEY, project TEXT NOT NULL, payload TEXT NOT NULL,
+ last_attempt_at TEXT NOT NULL, last_success_at TEXT, error TEXT
+);
+CREATE TABLE project_items (
+ source_id TEXT NOT NULL REFERENCES project_sources(source_id), external_id TEXT NOT NULL,
+ task_id TEXT NOT NULL UNIQUE REFERENCES tasks(id), payload TEXT NOT NULL,
+ present INTEGER NOT NULL DEFAULT 1, PRIMARY KEY(source_id,external_id)
+);
+"""
+
 
 class Database:
     def __init__(self, directory: Path):
@@ -96,7 +108,7 @@ class Database:
         with self.connection() as connection:
             connection.execute("PRAGMA journal_mode=WAL")
             version = connection.execute("PRAGMA user_version").fetchone()[0]
-            if version > 3:
+            if version > 4:
                 raise ValueError("La base de datos requiere una versión más reciente del servicio.")
             if version == 0:
                 connection.executescript(
@@ -109,6 +121,10 @@ class Database:
             if version < 3:
                 connection.executescript(
                     "BEGIN IMMEDIATE;\n" + PLANNING_SCHEMA + "PRAGMA user_version=3; COMMIT;"
+                )
+            if version < 4:
+                connection.executescript(
+                    "BEGIN IMMEDIATE;\n" + PROJECT_SCHEMA + "PRAGMA user_version=4; COMMIT;"
                 )
 
     @contextmanager

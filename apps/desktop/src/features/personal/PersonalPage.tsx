@@ -1,5 +1,5 @@
 import { useStore } from '@nanostores/react'
-import { IconBook, IconChecklist, IconCode, IconMail, IconPlus, IconRefresh, IconSun, IconWifiOff } from '@tabler/icons-react'
+import { IconBook, IconChecklist, IconCode, IconFolder, IconMail, IconPlus, IconRefresh, IconSun, IconWifiOff } from '@tabler/icons-react'
 import { useEffect, useRef } from 'react'
 import { GlassButton, PageHeader, Pill, Tabs, type TabDef } from '../../components/ui/glass.tsx'
 import { $personal, $personalFocus, personal } from '../../store/personal.ts'
@@ -10,9 +10,11 @@ import { dateLabel, TAB_LABELS, type PersonalTab } from './model.ts'
 import { ActionFeedback, usePersonalAction } from './shared.tsx'
 import { TaskPanel } from './TaskPanel.tsx'
 import { TodayPanel } from './TodayPanel.tsx'
+import { ProjectsPanel } from './ProjectsPanel.tsx'
 
 const tabs: readonly TabDef<PersonalTab>[] = [
   { id: 'today', label: TAB_LABELS.today, icon: <IconSun size={15} /> },
+  { id: 'projects', label: TAB_LABELS.projects, icon: <IconFolder size={15} /> },
   { id: 'mail', label: TAB_LABELS.mail, icon: <IconMail size={15} /> },
   { id: 'tasks', label: TAB_LABELS.tasks, icon: <IconChecklist size={15} /> },
   { id: 'journal', label: TAB_LABELS.journal, icon: <IconBook size={15} /> },
@@ -36,6 +38,7 @@ export function PersonalPage() {
       {showInitialLoading && <div role="status" aria-label="Cargando espacio personal" className="grid gap-3"><div className="shimmer h-32 rounded-xl" /><div className="grid grid-cols-3 gap-3"><div className="shimmer h-24 rounded-xl" /><div className="shimmer h-24 rounded-xl" /></div></div>}
       {[...visited.current].map(tab => <section key={tab} className={tab === 'mail' ? 'min-h-0 flex-1' : undefined} hidden={focus.tab !== tab || showInitialLoading} role="tabpanel" aria-label={TAB_LABELS[tab]}>
         {tab === 'today' && <TodayPanel />}
+        {tab === 'projects' && <ProjectsPanel />}
         {tab === 'mail' && <MailWorkspacePanel />}
         {tab === 'tasks' && <TaskPanel />}
         {tab === 'journal' && <JournalPanel />}

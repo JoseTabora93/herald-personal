@@ -28,6 +28,7 @@ export function DevelopmentPanel() {
     return () => window.clearInterval(timer)
   }, [active, focus.tick])
   return <div className="flex flex-col gap-5">
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line p-4"><div><h2 className="text-[14px] font-semibold">Progreso de tus proyectos</h2><p className="mt-1 text-[12px] text-fg-3">Consulta el tablero de trabajo, los PRs y los bloqueos de cada proyecto.</p></div><GlassButton size="sm" onClick={() => void action.run('personal.open', { tab: 'projects' })}>Ver Proyectos</GlassButton></div>
     <GlassCard className="p-5"><div><h2 className="text-[16px] font-semibold">Desarrollo bajo seguimiento</h2><p className="mt-2 max-w-2xl text-[12.5px] leading-relaxed text-fg-2">Observa las sesiones reales de Claude Code y OpenCode y consulta las ejecuciones administradas desde Hermes.</p></div><p className="mt-4 text-[12px] text-fg-3">Que una sesión o un proceso termine no confirma que su resultado esté probado. La revisión pendiente permanece visible hasta una validación independiente.</p></GlassCard>
     <AgentObservationsPanel />
     <Section title="Ejecuciones administradas" action={<GlassButton size="sm" disabled={data.agentRunsLoading || action.busy} onClick={() => void action.run('personal.development.refresh')}><IconRefresh />{data.agentRunsLoading ? 'Actualizando…' : 'Actualizar'}</GlassButton>}>

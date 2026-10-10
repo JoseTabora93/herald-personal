@@ -234,6 +234,11 @@ def _definition(name, description, properties=None, required=(), readonly=False)
 def tool_definitions(include_coding=False, include_kanban=False):
     definitions = [
         _definition(
+            "personal_project_list",
+            "Leer el dashboard por proyecto: compromisos, ejecución observada, PRs, sincronización y bloqueos. Un merge no confirma despliegue o validación.",
+            readonly=True,
+        ),
+        _definition(
             "mail_workspace_status",
             "Estado y conteos del espacio Ingelmec Mail original; no duplica su bandeja.",
             readonly=True,
@@ -551,6 +556,7 @@ class Bridge:
                     "Operación requiere capacidad del operador y confirmación humana explícita."
                 )
         static = {
+            "personal_project_list": "/v1/projects",
             "personal_status": "/v1/status",
             "personal_overview": "/v1/overview",
             "personal_checkin_list": "/v1/checkins",
