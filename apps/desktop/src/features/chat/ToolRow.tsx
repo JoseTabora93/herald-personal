@@ -6,6 +6,10 @@ import { formatDuration, truncate } from '../../lib/format.ts'
 import type { ToolMessage } from '../../lib/chat-model.ts'
 
 const FRIENDLY: Record<string, string> = {
+  personal_project_context: 'Consulta del proyecto',
+  personal_project_direction_update: 'Cambio de rumbo en Herald',
+  personal_task_create: 'Creación de compromiso',
+  personal_task_update: 'Cambio de compromiso',
   terminal: 'Ran a command',
   read_file: 'Read a file',
   write_file: 'Wrote a file',

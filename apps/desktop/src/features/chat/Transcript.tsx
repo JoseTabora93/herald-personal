@@ -49,7 +49,7 @@ export function Transcript({ chat }: { chat: ChatState }) {
         {chat.streaming && !chat.status && !chat.openAssistantId && (
           <div className="flex items-center gap-2 px-1 text-[12px] text-fg-3 animate-fade-in">
             <span className="size-1.5 rounded-full bg-accent animate-pulse-soft" />
-            Thinking
+            Pensando
           </div>
         )}
       </div>
@@ -91,7 +91,7 @@ function Assistant({ message }: { message: AssistantMessage }) {
         {hasReasoning && (
           <button type="button" onClick={() => setShowReasoning(v => !v)} className="mb-1 flex items-center gap-1 text-[11.5px] text-fg-3 hover:text-fg-2">
             <IconChevronRight size={12} className={cn('transition-transform duration-100', showReasoning && 'rotate-90')} />
-            {message.streaming && !message.text ? 'Thinking' : 'Reasoning'}
+            {message.streaming && !message.text ? 'Pensando' : 'Razonamiento'}
           </button>
         )}
         {hasReasoning && showReasoning && (
@@ -105,7 +105,7 @@ function Assistant({ message }: { message: AssistantMessage }) {
           <div className="h-5 w-16 animate-pulse-soft rounded bg-surface-2" />
         ) : null}
         {message.error && <div className="mt-2 rounded-md bg-danger/10 px-3 py-2 text-[12.5px] text-danger">{message.error}</div>}
-        {message.status === 'interrupted' && <div className="mt-1 text-[11.5px] text-fg-4">Interrupted</div>}
+        {message.status === 'interrupted' && <div className="mt-1 text-[11.5px] text-fg-4">Interrumpido</div>}
       </div>
     </div>
   )

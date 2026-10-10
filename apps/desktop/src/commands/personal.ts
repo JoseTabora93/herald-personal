@@ -4,6 +4,7 @@ import { MAIL_WORKSPACE_VIEWS } from '../features/personal/mail-workspace.ts'
 import { $personal, focusPersonal, mailWorkspace, nativeMail, personal } from '../store/personal.ts'
 import { nativeMailCommands } from './personal-mail.ts'
 import { projectCommands } from './personal-projects.ts'
+import { projectChatCommands } from './personal-project-chat.ts'
 import { fail, ok, type OsCommand } from '../store/os-commands.ts'
 import { showPage } from '../store/windows.ts'
 
@@ -132,7 +133,7 @@ const commands: readonly OsCommand[] = [
   }
 ]
 
-export const personalCommands: readonly OsCommand[] = [...commands, ...nativeMailCommands, ...projectCommands].map<OsCommand>(command => ({
+export const personalCommands: readonly OsCommand[] = [...commands, ...nativeMailCommands, ...projectCommands, ...projectChatCommands].map<OsCommand>(command => ({
   ...command,
   run: async (args, context) => {
     try { return await command.run(args, context) }

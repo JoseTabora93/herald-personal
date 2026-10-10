@@ -203,3 +203,10 @@ export interface PersonalProject {
   sources: PersonalProjectSource[]
   events: (PersonalEvent & { task_id: string; title: string })[]
 }
+
+export interface PersonalProjectWorkspace {
+  project: PersonalProject
+  conversations: { session_id: string; title: string; created_at: string }[]
+  direction: { text: string; revision: number; updated_at: string | null; delivery: 'local' }
+  events: { id: string; text: string; revision: number; created_at: string }[]
+}

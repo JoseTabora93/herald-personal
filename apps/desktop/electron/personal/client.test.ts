@@ -27,6 +27,15 @@ describe('installed personal connection', () => {
 })
 
 describe('personal service credential boundary', () => {
+  it('allows project chat reads and links while rejecting direction writes from the renderer', async () => {
+    const fetcher = vi.fn<typeof fetch>(async () => response())
+    const base = `/v1/projects/${'a'.repeat(24)}`
+    await requestPersonal({ method: 'GET', path: `${base}/workspace` }, env, fetcher)
+    await requestPersonal({ method: 'POST', path: `${base}/conversations`, body: { session_id: 'qa', title: 'QA' } }, env, fetcher)
+    await expect(requestPersonal({ method: 'PUT', path: `${base}/direction`, body: {} }, env, fetcher)).rejects.toThrow(/solicitud/i)
+    await expect(requestPersonal({ method: 'GET', path: `${base}/workspace?token=unsafe` }, env, fetcher)).rejects.toThrow(/solicitud/i)
+    expect(fetcher).toHaveBeenCalledTimes(2)
+  })
   it('fails closed without credentials and never calls the service', async () => {
     const fetcher = vi.fn()
     await expect(requestPersonal(get, {}, fetcher)).rejects.toThrow(/configur/i)

@@ -11,6 +11,7 @@ import { ActionFeedback, usePersonalAction } from './shared.tsx'
 import { TaskPanel } from './TaskPanel.tsx'
 import { TodayPanel } from './TodayPanel.tsx'
 import { ProjectsPanel } from './ProjectsPanel.tsx'
+import { ProjectChatWindow } from './ProjectChatWindow.tsx'
 
 const tabs: readonly TabDef<PersonalTab>[] = [
   { id: 'today', label: TAB_LABELS.today, icon: <IconSun size={15} /> },
@@ -29,7 +30,7 @@ export function PersonalPage() {
   visited.current.add(focus.tab)
   const showInitialLoading = data.loading && !data.lastLoadedAt && focus.tab !== 'mail'
   useEffect(() => { void personal.refresh() }, [])
-  return <div className="page-enter flex h-full flex-col text-fg">
+  return <div className="page-enter relative flex h-full flex-col text-fg">
     <PageHeader icon="overview" title="Personal" subtitle="Tu correo, compromisos y seguimiento diario." actions={<><Pill tone={data.error ? 'warn' : data.lastLoadedAt ? 'ok' : 'muted'} dot>{data.loading ? 'Actualizando' : data.error ? 'Sin actualizar' : data.lastLoadedAt ? 'Servicio conectado' : 'Conexión pendiente'}</Pill><GlassButton size="icon" aria-label="Actualizar espacio personal" disabled={data.loading || action.busy} onClick={() => void action.run('personal.refresh')}><IconRefresh className={data.loading ? 'animate-spin' : ''} /></GlassButton><GlassButton variant="primary" onClick={() => void action.run('personal.task.new')}><IconPlus />Compromiso</GlassButton></>} />
     <div className="shrink-0 overflow-x-auto px-6 pb-4"><Tabs tabs={tabs} value={focus.tab} onChange={tab => void action.run('personal.open', { tab })} /></div>
     <div className={`min-h-0 flex-1 px-6 pb-6 ${focus.tab === 'mail' ? 'flex flex-col overflow-hidden' : 'overflow-y-auto'}`}>
@@ -45,5 +46,6 @@ export function PersonalPage() {
         {tab === 'development' && <DevelopmentPanel />}
       </section>)}
     </div>
+    <ProjectChatWindow />
   </div>
 }

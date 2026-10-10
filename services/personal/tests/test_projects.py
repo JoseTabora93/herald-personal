@@ -248,9 +248,11 @@ def test_migration_preserves_v3_tasks(settings):
     task = Records(database).create_task(TaskCreate(title="Before migration", project="Manual"))
     with database.connection() as connection:
         connection.executescript(
+            "DROP TABLE project_direction_events; DROP TABLE project_directions; "
+            "DROP TABLE project_conversations; "
             "DROP TABLE project_items; DROP TABLE project_sources; PRAGMA user_version=3;"
         )
     upgraded = Database(settings.data_dir)
     assert Records(upgraded).get_task(task.id) == task
     with upgraded.connection() as connection:
-        assert connection.execute("PRAGMA user_version").fetchone()[0] == 4
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == 5

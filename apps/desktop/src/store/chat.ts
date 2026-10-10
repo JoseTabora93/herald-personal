@@ -14,6 +14,8 @@ export const LISTED_SESSION_SOURCES: ReadonlySet<string> = new Set([SESSION_SOUR
 /** Live chat state per runtime session id. */
 export const $chats = map<Record<string, ChatState>>({})
 export const $activeChatId = atom<string | null>(null)
+/** Additional visible conversation surfaces do not replace the main chat selection. */
+export const $visibleChatSessionIds = atom<readonly string[]>([])
 export const $activeChat = computed([$chats, $activeChatId], (chats, id) => (id ? (chats[id] ?? null) : null))
 export const $chatOpening = atom<string | null>(null)
 export const $chatError = atom<string | null>(null)
@@ -83,8 +85,8 @@ export function bindChatEvents(): () => void {
       rememberRuntimeId(next.storedSessionId, sid)
     }
 
-    if (event.type === 'message.complete' && $activeChatId.get() !== sid) {
-      notify({ title: next.title || 'Hermes', body: 'Finished a turn in another session', level: 'info', surface: 'chat' })
+    if (event.type === 'message.complete' && $activeChatId.get() !== sid && !$visibleChatSessionIds.get().includes(sid)) {
+      notify({ title: next.title || 'Hermes', body: 'Terminó una respuesta en otra conversación', level: 'info', surface: 'chat' })
     }
 
     if (event.type === 'session.title' || event.type === 'message.complete') {
@@ -93,43 +95,46 @@ export function bindChatEvents(): () => void {
   })
 }
 
-export async function createChat(options: { cwd?: string; title?: string } = {}): Promise<ChatState> {
-  if (creating) return creating
-  const chosen = ++selection
+export async function createChat(options: { cwd?: string; title?: string; select?: boolean; context?: string } = {}): Promise<ChatState> {
+  const select = options.select !== false
+  if (select && creating) return creating
+  const chosen = select ? ++selection : selection
   const epoch = backendEpoch
-  $chatOpening.set('new'); $chatError.set(null)
+  if (select) { $chatOpening.set('new'); $chatError.set(null) }
   const cwd = options.cwd ?? $prefs.get().defaultCwd ?? $env.get()?.homeDir ?? null
-  const pending = gatewayRequest('session.create', { source: SESSION_SOURCE, cwd, title: options.title ?? null }).then(result => {
+  const pending = gatewayRequest('session.create', { source: SESSION_SOURCE, cwd, title: options.title ?? null,
+    ...(options.context ? { messages: [{ role: 'user', content: options.context, display_kind: 'hidden' }] } : {})
+  }).then(result => {
     if (epoch !== backendEpoch) throw new Error('Hermes se reconectó. Abre de nuevo la conversación.')
     const state = adopt(result)
     $chats.setKey(state.sessionId, state)
-    if (chosen === selection) $activeChatId.set(state.sessionId)
+    if (select && chosen === selection) $activeChatId.set(state.sessionId)
     return state
   }).catch(error => {
-    if (chosen === selection) $chatError.set(error instanceof Error ? error.message : String(error))
+    if (select && chosen === selection) $chatError.set(error instanceof Error ? error.message : String(error))
     throw error
   }).finally(() => {
     if (creating === pending) creating = null
-    if (chosen === selection) $chatOpening.set(null)
+    if (select && chosen === selection) $chatOpening.set(null)
   })
-  creating = pending
+  if (select) creating = pending
   return pending
 }
 
-export async function openStoredSession(storedId: string): Promise<ChatState> {
-  const chosen = ++selection
+export async function openStoredSession(storedId: string, options: { select?: boolean } = {}): Promise<ChatState> {
+  const select = options.select !== false
+  const chosen = select ? ++selection : selection
   const epoch = backendEpoch
-  $chatError.set(null)
+  if (select) $chatError.set(null)
   const existing = Object.values($chats.get()).find(chat => chat.storedSessionId === storedId || chat.sessionId === $runtimeIds.get()[storedId])
 
   if (existing) {
-    $activeChatId.set(existing.sessionId)
-    $chatOpening.set(null)
+    if (select) { $activeChatId.set(existing.sessionId); $chatOpening.set(null) }
 
     return existing
   }
 
-  $chatOpening.set(storedId)
+  if (select) $chatOpening.set(storedId)
   let pending = resuming.get(storedId)
   if (!pending) {
     pending = gatewayRequest('session.resume', { session_id: storedId, source: SESSION_SOURCE }).then(result => {
@@ -143,13 +148,13 @@ export async function openStoredSession(storedId: string): Promise<ChatState> {
   }
   try {
     const state = await pending
-    if (chosen === selection) $activeChatId.set(state.sessionId)
+    if (select && chosen === selection) $activeChatId.set(state.sessionId)
     return state
   } catch (error) {
-    if (chosen === selection) $chatError.set(error instanceof Error ? error.message : String(error))
+    if (select && chosen === selection) $chatError.set(error instanceof Error ? error.message : String(error))
     throw error
   } finally {
-    if (chosen === selection) $chatOpening.set(null)
+    if (select && chosen === selection) $chatOpening.set(null)
   }
 }
 
@@ -190,7 +195,7 @@ export async function sendPrompt(text: string, options: SendPromptOptions = {}):
   let sid = options.sessionId ?? $activeChatId.get()
 
   if (options.sessionId && !$chats.get()[options.sessionId]) throw new Error('Esta sesión ya no está activa. Vuelve a abrirla desde el historial.')
-  if ($chatOpening.get() && !creating) throw new Error('Espera a que termine de abrir la conversación.')
+  if (!options.sessionId && $chatOpening.get() && !creating) throw new Error('Espera a que termine de abrir la conversación.')
 
   if (!sid || !$chats.get()[sid]) {
     sid = (await createChat({ cwd: options.cwd })).sessionId
@@ -294,6 +299,7 @@ export function resetChats(): void {
   $chatOpening.set(null); $chatError.set(null); $runtimeIds.set({})
   $chats.set({})
   $activeChatId.set(null)
+  $visibleChatSessionIds.set([])
 }
 
 /** Fire-and-forget surfaces still expose failures, without unhandled promises. */

@@ -42,6 +42,7 @@ from .models import (
 )
 from .planning import Planning
 from .planning_routes import attach_planning_routes
+from .project_workspace import ProjectWorkspace, attach_project_workspace_routes
 from .projects import Projects, attach_project_routes
 from .providers.base import DraftResult, MailProvider, ProviderHTTP
 from .providers.gmail import GmailProvider
@@ -135,6 +136,7 @@ def create_app(
     )
     app.add_middleware(RequestGuard, settings=configuration)
     attach_project_routes(app, Projects(database))
+    attach_project_workspace_routes(app, ProjectWorkspace(database))
 
     @app.exception_handler(ServiceError)
     async def service_error(_: Request, error: ServiceError) -> JSONResponse:

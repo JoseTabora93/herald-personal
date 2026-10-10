@@ -95,6 +95,23 @@ CREATE TABLE project_items (
 );
 """
 
+PROJECT_WORKSPACE_SCHEMA = """
+CREATE TABLE project_conversations (
+ session_id TEXT PRIMARY KEY, project_id TEXT NOT NULL, title TEXT NOT NULL,
+ created_at TEXT NOT NULL
+);
+CREATE INDEX project_conversations_project ON project_conversations(project_id,created_at);
+CREATE TABLE project_directions (
+ project_id TEXT PRIMARY KEY, text TEXT NOT NULL, revision INTEGER NOT NULL,
+ updated_at TEXT NOT NULL
+);
+CREATE TABLE project_direction_events (
+ id TEXT PRIMARY KEY, project_id TEXT NOT NULL REFERENCES project_directions(project_id),
+ text TEXT NOT NULL, revision INTEGER NOT NULL, created_at TEXT NOT NULL,
+ UNIQUE(project_id,revision)
+);
+"""
+
 
 class Database:
     def __init__(self, directory: Path):
@@ -108,7 +125,7 @@ class Database:
         with self.connection() as connection:
             connection.execute("PRAGMA journal_mode=WAL")
             version = connection.execute("PRAGMA user_version").fetchone()[0]
-            if version > 4:
+            if version > 5:
                 raise ValueError("La base de datos requiere una versión más reciente del servicio.")
             if version == 0:
                 connection.executescript(
@@ -125,6 +142,12 @@ class Database:
             if version < 4:
                 connection.executescript(
                     "BEGIN IMMEDIATE;\n" + PROJECT_SCHEMA + "PRAGMA user_version=4; COMMIT;"
+                )
+            if version < 5:
+                connection.executescript(
+                    "BEGIN IMMEDIATE;\n"
+                    + PROJECT_WORKSPACE_SCHEMA
+                    + "PRAGMA user_version=5; COMMIT;"
                 )
 
     @contextmanager

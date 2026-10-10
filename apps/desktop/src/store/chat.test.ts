@@ -1,17 +1,56 @@
 import { atom } from 'nanostores'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const io = vi.hoisted(() => ({ rpc: vi.fn(), refresh: vi.fn(), remember: vi.fn(), rename: vi.fn(), watch: vi.fn() }))
+const io = vi.hoisted(() => ({ rpc: vi.fn(), refresh: vi.fn(), remember: vi.fn(), rename: vi.fn(), watch: vi.fn(), notify: vi.fn() }))
 vi.mock('./gateway.ts', () => ({ gatewayRequest: io.rpc, onAnyGatewayEvent: io.watch }))
 vi.mock('./backend.ts', () => ({ $env: atom(null), $prefs: atom({}) }))
 vi.mock('./sessions.ts', () => ({ refreshSessions: io.refresh, rememberRuntimeId: io.remember, updateSessionTitle: io.rename, $runtimeIds: atom({}) }))
-vi.mock('./notifications.ts', () => ({ notify: vi.fn() }))
+vi.mock('./notifications.ts', () => ({ notify: io.notify }))
 import * as chat from './chat.ts'
 import { $chatDrafts, setChatDraft } from './chat-drafts.ts'
 
 const result = (id: string) => ({ session_id: `runtime-${id}`, session_key: id, messages: [{ role: 'user', text: `historial ${id}` }], info: { title: id } })
 const deferred = <T,>() => { let resolve!: (value: T) => void; const promise = new Promise<T>(r => { resolve = r }); return { promise, resolve } }
-beforeEach(() => { chat.resetChats(); vi.clearAllMocks() })
+beforeEach(() => { chat.resetChats(); vi.resetAllMocks() })
+
+describe('project conversations keep their own session', () => {
+  it('does not show another-session toasts over a visible project chat', async () => {
+    io.rpc.mockResolvedValueOnce(result('visible'))
+    await chat.openStoredSession('visible', { select: false })
+    chat.$visibleChatSessionIds.set(['runtime-visible'])
+    const unbind = chat.bindChatEvents()
+    const receive = io.watch.mock.calls[0][0]
+    receive({ type: 'message.complete', session_id: 'runtime-visible', payload: { text: 'Listo' } })
+    expect(io.notify).not.toHaveBeenCalled()
+    chat.$visibleChatSessionIds.set([])
+    receive({ type: 'message.complete', session_id: 'runtime-visible', payload: { text: 'Otra respuesta' } })
+    expect(io.notify).toHaveBeenCalledOnce()
+    unbind?.()
+  })
+  it('creates distinct background sessions without replacing the main chat', async () => {
+    io.rpc.mockResolvedValueOnce(result('main'))
+    await chat.openStoredSession('main')
+    const slow = deferred<ReturnType<typeof result>>()
+    io.rpc.mockReturnValueOnce(slow.promise).mockResolvedValueOnce(result('project-b'))
+    const a = chat.createChat({ select: false, title: 'Project A', context: 'Project A runbook' })
+    const pendingB = chat.createChat({ select: false, title: 'Project B' })
+    slow.resolve(result('project-a'))
+    const b = await pendingB
+    expect((await a).storedSessionId).toBe('project-a')
+    expect(b.storedSessionId).toBe('project-b')
+    expect(chat.$activeChat.get()?.storedSessionId).toBe('main')
+    expect(io.rpc).toHaveBeenCalledWith('session.create', expect.objectContaining({ messages: [{ role: 'user', content: 'Project A runbook', display_kind: 'hidden' }] }))
+  })
+  it('resumes and sends to a project while another main conversation is opening', async () => {
+    io.rpc.mockResolvedValueOnce(result('project'))
+    await chat.openStoredSession('project', { select: false })
+    chat.$chatOpening.set('some-other-session')
+    io.rpc.mockResolvedValueOnce({})
+    await chat.sendPrompt('Guíame', { sessionId: 'runtime-project' })
+    expect(chat.$activeChatId.get()).toBeNull()
+    expect(io.rpc).toHaveBeenLastCalledWith('prompt.submit', expect.objectContaining({ session_id: 'runtime-project', text: 'Guíame' }))
+  })
+})
 
 describe('resuming saved conversations', () => {
   it('uses the canonical stored ID returned by Hermes after compaction', async () => {
