@@ -5,7 +5,7 @@ import { HeraldLogo } from '../../components/herald-logo.tsx'
 import { GlassButton } from '../../components/ui/glass.tsx'
 import { Spinner } from '../../components/ui/primitives.tsx'
 import { cn } from '../../lib/cn.ts'
-import { $hermesAuth, refreshHermesAuth, requestHermesLogin } from '../../store/hermes-auth.ts'
+import { $hermesAuth, loginTarget, refreshHermesAuth, requestHermesLogin } from '../../store/hermes-auth.ts'
 import { StatusPanel } from '../status/StatusPanel.tsx'
 
 type Step = 'welcome' | 'account' | 'wifi' | 'hermes' | 'done'
@@ -193,7 +193,8 @@ function HermesStep({ onDone }: { onDone: () => void }) {
     void refreshHermesAuth().finally(() => setChecking(false))
   }, [])
 
-  const signedIn = auth.checked && !auth.needsLogin && Boolean(auth.activeProvider)
+  const target = loginTarget(auth)
+  const signedIn = auth.checked && Boolean(auth.activeProvider) && (target ? target.loggedIn : !auth.needsLogin)
 
   return (
     <div className="flex flex-col gap-4">

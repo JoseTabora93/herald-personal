@@ -16,8 +16,9 @@ import {
   startDeviceLogin
 } from '../../store/hermes-auth.ts'
 import { isPanels } from '../../store/shell.ts'
+import { runCommand } from '../../store/os-commands.ts'
 import { $webWindows, closeWebWindow, focusWebWindow, openWebWindow } from '../../store/web-windows.ts'
-import { type Bounds, desktopArea, showPage } from '../../store/windows.ts'
+import { type Bounds, desktopArea } from '../../store/windows.ts'
 
 /** The card's width plus the gap it keeps from the screen edge and from the sign-in window. */
 const CARD_WIDTH = 440
@@ -36,7 +37,7 @@ type Phase = { kind: 'idle' } | { kind: 'starting' } | { kind: 'code'; login: De
 
 /**
  * The OS-level sign-in for Hermes's model provider. Shown when the active provider has no usable
- * credentials (boot check or a failed turn). Runs the runtime's device-code flow: show the code,
+ * credentials after a failed turn or an explicit request. Runs the device-code flow: show the code,
  * open the portal in a Herald OS web window beside the card, poll until approved; the runtime
  * persists the credentials itself. The portal never opens in the system browser.
  */
@@ -79,7 +80,7 @@ export function HermesLoginCard() {
     }
   }, [auth.needsLogin])
 
-  if (!auth.needsLogin || !target) {
+  if (!auth.needsLogin) {
     return null
   }
 
@@ -93,6 +94,7 @@ export function HermesLoginCard() {
 
   /** Show the portal inside Herald OS: raise the existing window, or open one beside the card. */
   const openSignInPage = async (url: string) => {
+    if (!target) return
     if (webRef.current && $webWindows.get()[webRef.current]) {
       focusWebWindow(webRef.current)
 
@@ -110,6 +112,7 @@ export function HermesLoginCard() {
   }
 
   const begin = async () => {
+    if (!target) return
     setPhase({ kind: 'starting' })
 
     try {
@@ -126,6 +129,7 @@ export function HermesLoginCard() {
   }
 
   const poll = (login: DeviceLoginStart) => {
+    if (!target) return
     const startedAt = Date.now()
     const tick = async () => {
       if (sessionRef.current !== login.sessionId) {
@@ -197,7 +201,11 @@ export function HermesLoginCard() {
     snoozeHermesLogin()
   }
 
-  const others = auth.providers.filter(p => p.id !== target.id && p.loggedIn)
+  const chooseProvider = () => {
+    close()
+    void runCommand('settings.open', { section: 'agents' }, { source: 'ui' })
+  }
+  const others = auth.providers.filter(p => p.id !== target?.id && p.loggedIn)
 
   return (
     // With the sign-in page open the card steps aside: no dimming, anchored right, page on the left.
@@ -212,10 +220,10 @@ export function HermesLoginCard() {
           <HermesAvatar size={36} rounded={10} />
           <div className="min-w-0 flex-1">
             <h2 id="hermes-login-title" className="text-[15px] font-semibold text-fg">
-              Sign in to Hermes
+              {target ? 'Sign in to Hermes' : 'Configura el modelo de Hermes'}
             </h2>
             <p className="mt-0.5 text-[12.5px] leading-snug text-fg-2">
-              Hermes uses <span className="font-medium text-fg">{target.name}</span> for its model and is signed out, so it cannot answer until you sign in.
+              {target ? <>Hermes uses <span className="font-medium text-fg">{target.name}</span> for its model and is signed out, so it cannot answer until you sign in.</> : 'Revisa el proveedor y el modelo en Ajustes para que Hermes pueda responder. Puedes seguir usando el panel mientras tanto.'}
             </p>
           </div>
           <button type="button" aria-label="Not now" onClick={close} className="-mt-1 -mr-1 flex size-7 items-center justify-center rounded-md text-fg-3 hover:bg-white/10 hover:text-fg">
@@ -223,10 +231,14 @@ export function HermesLoginCard() {
           </button>
         </div>
 
-        {auth.reason && phase.kind === 'idle' && <div className="mt-3 rounded-lg border border-warn/30 bg-warn/10 px-3 py-2 text-[11.5px] leading-snug text-warn">{auth.reason}</div>}
+        {target && auth.reason && phase.kind === 'idle' && <div className="mt-3 rounded-lg border border-warn/30 bg-warn/10 px-3 py-2 text-[11.5px] leading-snug text-warn">{auth.reason}</div>}
 
         <div className="mt-4">
-          {target.flow === 'external' ? (
+          {!target ? (
+            <GlassButton variant="primary" className="w-full justify-center" onClick={chooseProvider}>
+              <IconKey /> Elegir proveedor en Ajustes
+            </GlassButton>
+          ) : target.flow === 'external' ? (
             <ExternalInstructions name={target.name} command={target.cliCommand} docsUrl={target.docsUrl} />
           ) : phase.kind === 'idle' || phase.kind === 'failed' ? (
             <>
@@ -255,9 +267,9 @@ export function HermesLoginCard() {
                 {others.map(p => p.name).join(', ')} {others.length === 1 ? 'is' : 'are'} already signed in.{' '}
               </>
             ) : null}
-            <button type="button" className="text-accent-strong hover:underline" onClick={() => showPage('settings')}>
-              Change provider in Settings
-            </button>
+            {target && <button type="button" className="text-accent-strong hover:underline" onClick={chooseProvider}>
+              Cambiar proveedor en Ajustes
+            </button>}
           </span>
           <GlassButton size="sm" variant="ghost" onClick={close} aria-label="Not now">
             Not now

@@ -88,7 +88,9 @@ function ProviderAccountRow() {
         !auth.checked
           ? 'Checking sign-in…'
           : !target
-            ? 'No OAuth provider is configured; the model uses an API key.'
+            ? auth.activeProvider && auth.activeProvider !== 'auto'
+              ? `Proveedor configurado: ${auth.activeProvider}. Revisa el modelo y su conexión si no responde.`
+              : 'Selecciona un proveedor y un modelo para que Hermes pueda responder.'
             : signedIn
               ? `Signed in${target.source ? ` (${target.source.replace(/_/g, ' ')})` : ''}.${others.length ? ` Also signed in: ${others.map(p => p.name).join(', ')}.` : ''}`
               : 'Signed out. Hermes cannot answer until you sign in.'

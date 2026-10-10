@@ -31,7 +31,7 @@ export interface HermesAuthSnapshot {
   providers: OAuthProvider[]
   /** Show the sign-in card. */
   needsLogin: boolean
-  /** Why the card is up: the failing turn's message, or the boot check. */
+  /** Why the card is up: a failing turn or an explicit sign-in request. */
   reason: string | null
   /** The user chose "Not now"; the card stays hidden until the next failed turn. */
   snoozed: boolean
@@ -59,10 +59,10 @@ interface OAuthListResponse {
   providers?: Array<{ id: string; name: string; flow: string; cli_command?: string | null; docs_url?: string | null; status?: { logged_in?: boolean; source?: string | null } }>
 }
 
-/** Re-read provider status and the active provider; opens the card when the active one is signed out. */
+/** Refresh status without opening a sign-in invitation on startup or reconnect. */
 export async function refreshHermesAuth(): Promise<HermesAuthSnapshot> {
   try {
-    const [list, raw] = await Promise.all([rest.get<OAuthListResponse>('/api/providers/oauth'), rest.get<{ yaml?: string }>('/api/config/raw').catch(() => ({ yaml: '' }))])
+    const [list, raw] = await Promise.all([rest.get<OAuthListResponse>('/api/providers/oauth'), rest.get<{ yaml?: string }>('/api/config/raw').catch(() => null)])
     const providers: OAuthProvider[] = (list.providers ?? []).map(p => ({
       id: p.id,
       name: p.name,
@@ -72,18 +72,17 @@ export async function refreshHermesAuth(): Promise<HermesAuthSnapshot> {
       loggedIn: Boolean(p.status?.logged_in),
       source: p.status?.source ?? null
     }))
-    const activeProvider = parseActiveProvider(raw.yaml ?? '') ?? $hermesAuth.get().activeProvider
+    const activeProvider = raw ? parseActiveProvider(raw.yaml ?? '') : $hermesAuth.get().activeProvider
     const active = providers.find(p => p.id === activeProvider)
-    const signedOut = Boolean(active && !active.loggedIn)
     const current = $hermesAuth.get()
 
     patch({
       checked: true,
       activeProvider,
       providers,
-      // A signed-in provider closes the card; a signed-out one opens it unless the user snoozed it.
-      needsLogin: signedOut ? current.needsLogin || !current.snoozed : false,
-      reason: signedOut ? (current.reason ?? `${active?.name ?? activeProvider} is signed out.`) : null
+      // Only a turn failure or a user gesture opens the card. OAuth success can close it.
+      needsLogin: active?.loggedIn ? false : current.needsLogin,
+      reason: active?.loggedIn ? null : current.reason
     })
   } catch {
     // Older runtimes without the OAuth routes: nothing to show; turn errors still open the card.
@@ -102,9 +101,9 @@ export function snoozeHermesLogin(): void {
   patch({ needsLogin: false, snoozed: true })
 }
 
-/** The provider the card signs into: the active one, else the first device-code provider. */
+/** Only the configured provider can be a login target; list order is not user intent. */
 export function loginTarget(snapshot: HermesAuthSnapshot = $hermesAuth.get()): OAuthProvider | null {
-  return snapshot.providers.find(p => p.id === snapshot.activeProvider) ?? snapshot.providers.find(p => p.flow === 'device_code') ?? null
+  return snapshot.providers.find(p => p.id === snapshot.activeProvider) ?? null
 }
 
 export async function startDeviceLogin(providerId: string): Promise<DeviceLoginStart> {
